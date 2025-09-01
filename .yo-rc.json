@@ -1,0 +1,20 @@
+{
+  "generator-jhipster": {
+    "applicationType": "monolith",
+    "authenticationType": "oauth2",
+    "baseName": "dtadmin",
+    "buildTool": "maven",
+    "clientFramework": "no",
+    "devDatabaseType": "postgresql",
+    "enableHibernateCache": true,
+    "entities": ["ApprovalRequest", "ApprovalItem", "AuditLog", "ExternalResource"],
+    "jhipsterVersion": "8.11.0",
+    "languages": ["en"],
+    "lastLiquibaseTimestamp": 1756722888000,
+    "nativeLanguage": "en",
+    "packageName": "com.yuzhi.dtadmin",
+    "prodDatabaseType": "postgresql",
+    "skipClient": true,
+    "skipUserManagement": true
+  }
+}

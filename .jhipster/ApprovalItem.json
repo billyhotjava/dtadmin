@@ -1,0 +1,42 @@
+{
+  "annotations": {
+    "changelogDate": "20250901103248"
+  },
+  "applications": ["dtadmin"],
+  "dto": "mapstruct",
+  "fields": [
+    {
+      "fieldName": "targetKind",
+      "fieldType": "String",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "targetId",
+      "fieldType": "String",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "seqNumber",
+      "fieldType": "Integer",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "payload",
+      "fieldType": "TextBlob",
+      "fieldValidateRules": ["required"]
+    }
+  ],
+  "name": "ApprovalItem",
+  "pagination": "pagination",
+  "relationships": [
+    {
+      "otherEntityName": "approvalRequest",
+      "otherEntityRelationshipName": "items",
+      "relationshipName": "request",
+      "relationshipSide": "right",
+      "relationshipType": "many-to-one"
+    }
+  ],
+  "searchEngine": "no",
+  "service": "serviceClass"
+}

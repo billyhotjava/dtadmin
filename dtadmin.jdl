@@ -1,0 +1,93 @@
+/**
+ * Backend for approval & audit around Keycloak admin ops.
+ * DB: PostgreSQL; Package: com.yuzhi.dtadmin; No client (use slash-admin separately).
+ */
+application {
+  config {
+    baseName dtadmin
+    applicationType monolith
+    packageName com.yuzhi.dtadmin
+    authenticationType oauth2
+    buildTool maven
+
+    // DB
+    devDatabaseType postgresql
+    prodDatabaseType postgresql
+    enableHibernateCache true
+
+    // 前端交给 slash-admin，这里不生成前端
+    clientFramework no
+    skipUserManagement true
+  }
+
+  entities *
+}
+
+/* ===== Enums ===== */
+enum ApprovalType { 
+  CREATE_USER, 
+  UPDATE_USER, 
+  DELETE_USER, 
+  GRANT_ROLE,
+  REVOKE_ROLE 
+}
+
+enum ApprovalStatus { 
+  PENDING, 
+  APPROVED, 
+  REJECTED, 
+  APPLIED, 
+  FAILED 
+}
+
+/* ===== Entities ===== */
+
+// 审批主表
+entity ApprovalRequest {
+  requester           String required            // 发起人用户名（Keycloak username）
+  type                ApprovalType required
+  reason              String maxlength(512)      // 申请说明
+  createdAt           Instant required
+  decidedAt           Instant                    // 审批时间
+  status              ApprovalStatus required
+  approver            String                     // 授权管理员用户名
+  decisionNote        String maxlength(512)      // 审批意见
+  errorMessage        String maxlength(1024)     // 执行失败信息（如有）
+}
+
+// 审批明细（可多条，比如同时授权多个角色）
+entity ApprovalItem {
+  targetKind          String required            // USER / ROLE / CLIENT ...
+  targetId            String required            // 目标用户名或角色名
+  seqNumber           Integer required
+  payload             TextBlob required          // 变更 JSON 文本（为跨库兼容，这里用 TextBlob）
+}
+
+// 审计日志
+entity AuditLog {
+  actor               String required            // 执行者（系统/授权管理员/服务账号）
+  action              String required            // create-user/grant-role/...
+  target              String                     // 作用对象
+  details             TextBlob                   // 详情 JSON 文本
+  result              String                     // OK/ERROR
+  at                  Instant required
+}
+
+// 外部资源登记（可选，用于二次校验/目录展示）
+entity ExternalResource {
+  urn                 String required unique     // 资源唯一名：tds:db:catalog.schema.table / bi:dashboard:123
+  maxLevel            String required            // PUBLIC/INTERNAL/SECRET/TOP_SECRET
+}
+
+/* ===== Relationships ===== */
+relationship OneToMany {
+  ApprovalRequest{items} to ApprovalItem{request}
+}
+
+/* ===== Service & DTO & Pagination ===== */
+service all with serviceClass
+dto ApprovalRequest, ApprovalItem, AuditLog, ExternalResource with mapstruct
+paginate ApprovalRequest, ApprovalItem, AuditLog with pagination
+
+
+

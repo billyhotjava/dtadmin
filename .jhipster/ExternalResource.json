@@ -1,0 +1,23 @@
+{
+  "annotations": {
+    "changelogDate": "20250901103448"
+  },
+  "applications": ["dtadmin"],
+  "dto": "mapstruct",
+  "fields": [
+    {
+      "fieldName": "urn",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "unique"]
+    },
+    {
+      "fieldName": "maxLevel",
+      "fieldType": "String",
+      "fieldValidateRules": ["required"]
+    }
+  ],
+  "name": "ExternalResource",
+  "relationships": [],
+  "searchEngine": "no",
+  "service": "serviceClass"
+}

@@ -1,0 +1,70 @@
+{
+  "annotations": {
+    "changelogDate": "20250901103148"
+  },
+  "applications": ["dtadmin"],
+  "dto": "mapstruct",
+  "fields": [
+    {
+      "fieldName": "requester",
+      "fieldType": "String",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "type",
+      "fieldType": "ApprovalType",
+      "fieldValidateRules": ["required"],
+      "fieldValues": "CREATE_USER,UPDATE_USER,DELETE_USER,GRANT_ROLE,REVOKE_ROLE"
+    },
+    {
+      "fieldName": "reason",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "512"
+    },
+    {
+      "fieldName": "createdAt",
+      "fieldType": "Instant",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "decidedAt",
+      "fieldType": "Instant"
+    },
+    {
+      "fieldName": "status",
+      "fieldType": "ApprovalStatus",
+      "fieldValidateRules": ["required"],
+      "fieldValues": "PENDING,APPROVED,REJECTED,APPLIED,FAILED"
+    },
+    {
+      "fieldName": "approver",
+      "fieldType": "String"
+    },
+    {
+      "fieldName": "decisionNote",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "512"
+    },
+    {
+      "fieldName": "errorMessage",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "1024"
+    }
+  ],
+  "name": "ApprovalRequest",
+  "pagination": "pagination",
+  "relationships": [
+    {
+      "otherEntityName": "approvalItem",
+      "otherEntityRelationshipName": "request",
+      "relationshipName": "items",
+      "relationshipSide": "left",
+      "relationshipType": "one-to-many"
+    }
+  ],
+  "searchEngine": "no",
+  "service": "serviceClass"
+}
