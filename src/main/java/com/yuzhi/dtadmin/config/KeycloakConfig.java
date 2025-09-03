@@ -1,4 +1,4 @@
-package com.yuzhicloud.dtadmin.config;
+package com.yuzhi.dtadmin.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;

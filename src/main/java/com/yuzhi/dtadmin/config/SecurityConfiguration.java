@@ -60,12 +60,15 @@ public class SecurityConfiguration {
                 csrf
                     .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                     .csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler())
+                    // 对Keycloak认证端点禁用CSRF保护
+                    .ignoringRequestMatchers(mvc.pattern("/api/keycloak/auth/**"))
             )
             .authorizeHttpRequests(authz ->
                 // prettier-ignore
                 authz
                     .requestMatchers(mvc.pattern("/api/authenticate")).permitAll()
                     .requestMatchers(mvc.pattern("/api/auth-info")).permitAll()
+                    .requestMatchers(mvc.pattern("/api/keycloak/auth/**")).permitAll() // 允许Keycloak认证端点
                     .requestMatchers(mvc.pattern("/api/admin/**")).hasAuthority(AuthoritiesConstants.ADMIN)
                     .requestMatchers(mvc.pattern("/api/**")).authenticated()
                     .requestMatchers(mvc.pattern("/v3/api-docs/**")).hasAuthority(AuthoritiesConstants.ADMIN)
@@ -77,7 +80,23 @@ public class SecurityConfiguration {
             )
             .oauth2Login(oauth2 -> oauth2.loginPage("/").userInfoEndpoint(userInfo -> userInfo.oidcUserService(this.oidcUserService())))
             .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(authenticationConverter())))
-            .oauth2Client(withDefaults());
+            .oauth2Client(withDefaults())
+            .exceptionHandling(exceptions -> exceptions
+                .authenticationEntryPoint((request, response, authException) -> {
+                    // 对于API请求，返回JSON格式的401错误，而不是重定向
+                    String requestURI = request.getRequestURI();
+                    if (requestURI.startsWith("/api/")) {
+                        response.setContentType("application/json;charset=UTF-8");
+                        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                        response.getWriter().write(
+                            "{\"status\":401,\"message\":\"Unauthorized\",\"data\":null}"
+                        );
+                    } else {
+                        // 对于非API请求，使用默认行为（重定向到登录页）
+                        response.sendRedirect("/");
+                    }
+                })
+            );
         return http.build();
     }
 
