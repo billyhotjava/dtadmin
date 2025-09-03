@@ -11,7 +11,7 @@
     -->
     <changeSet id="20250901103148-1" author="jhipster">
         <createTable tableName="approval_request">
-            <column name="id" type="bigint">
+            <column name="id" type="bigint" autoIncrement="true">
                 <constraints primaryKey="true" nullable="false"/>
             </column>
             <column name="requester" type="varchar(255)">
@@ -23,10 +23,10 @@
             <column name="reason" type="varchar(512)">
                 <constraints nullable="true" />
             </column>
-            <column name="created_at" type="${datetimeType}">
+            <column name="created_at" type="datetime">
                 <constraints nullable="false" />
             </column>
-            <column name="decided_at" type="${datetimeType}">
+            <column name="decided_at" type="datetime">
                 <constraints nullable="true" />
             </column>
             <column name="status" type="varchar(255)">
@@ -43,8 +43,7 @@
             </column>
             <!-- jhipster-needle-liquibase-add-column - JHipster will add columns here -->
         </createTable>
-        <dropDefaultValue tableName="approval_request" columnName="created_at" columnDataType="${datetimeType}"/>
-        <dropDefaultValue tableName="approval_request" columnName="decided_at" columnDataType="${datetimeType}"/>
+        <!-- Remove dropDefaultValue for MySQL as it's not needed with datetime -->
     </changeSet>
 
     <!-- jhipster-needle-liquibase-add-changeset - JHipster will add changesets here -->

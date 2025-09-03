@@ -149,7 +149,8 @@ spring:
       client:
         provider:
           oidc:
-            issuer-uri: http://localhost:9080/realms/jhipster
+            issuer-uri: https://sso.yuzhicloud.com/realms/s10
+           # issuer-uri: http://localhost:9080/realms/jhipster
         registration:
           oidc:
             client-id: web_app

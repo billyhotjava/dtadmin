@@ -11,7 +11,7 @@
     -->
     <changeSet id="20250901103448-1" author="jhipster">
         <createTable tableName="external_resource">
-            <column name="id" type="bigint">
+            <column name="id" type="bigint" autoIncrement="true">
                 <constraints primaryKey="true" nullable="false"/>
             </column>
             <column name="urn" type="varchar(255)">
