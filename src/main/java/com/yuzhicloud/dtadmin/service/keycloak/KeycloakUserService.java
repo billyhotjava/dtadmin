@@ -56,6 +56,15 @@ public class KeycloakUserService {
         dto.setEnabled(user.isEnabled());
         dto.setEmailVerified(user.isEmailVerified());
         dto.setCreatedTimestamp(user.getCreatedTimestamp());
+        
+        // 添加attributes字段的转换
+        dto.setAttributes(user.getAttributes());
+        
+        // 添加groups、realmRoles、clientRoles字段的转换
+        dto.setGroups(user.getGroups());
+        dto.setRealmRoles(user.getRealmRoles());
+        dto.setClientRoles(user.getClientRoles());
+        
         return dto;
     }
 
