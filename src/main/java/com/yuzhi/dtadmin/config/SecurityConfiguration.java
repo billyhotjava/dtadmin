@@ -40,7 +40,7 @@ import org.springframework.web.servlet.handler.HandlerMappingIntrospector;
 import tech.jhipster.config.JHipsterProperties;
 
 @Configuration
-@EnableMethodSecurity(securedEnabled = true)
+// @EnableMethodSecurity(securedEnabled = true) // 禁用方法级别的安全检查，由Keycloak处理权限
 public class SecurityConfiguration {
 
     private final JHipsterProperties jHipsterProperties;
@@ -61,8 +61,7 @@ public class SecurityConfiguration {
                     .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                     .csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler())
                     // 对Keycloak认证和诊断端点禁用CSRF保护
-                    .ignoringRequestMatchers(mvc.pattern("/api/keycloak/auth/**"))
-                    .ignoringRequestMatchers(mvc.pattern("/api/keycloak/diagnostic/**"))
+                    .ignoringRequestMatchers(mvc.pattern("/api/keycloak/**")) // 禁用所有Keycloak API的CSRF保护
             )
             .authorizeHttpRequests(authz ->
                 // prettier-ignore
