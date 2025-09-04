@@ -2,20 +2,25 @@ package com.yuzhicloud.dtadmin.service.keycloak;
 
 import com.yuzhicloud.dtadmin.config.KeycloakConfig;
 import com.yuzhicloud.dtadmin.dto.keycloak.KeycloakUserDTO;
+import org.keycloak.admin.client.Keycloak;
+import org.keycloak.admin.client.resource.RealmResource;
+import org.keycloak.admin.client.resource.UserResource;
+import org.keycloak.admin.client.resource.UsersResource;
+import org.keycloak.representations.idm.UserRepresentation;
+import org.keycloak.representations.idm.CredentialRepresentation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.*;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
-import java.util.HashMap;
+import jakarta.ws.rs.core.Response;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
- * Keycloak用户管理服务
+ * Keycloak用户管理服务 - 使用官方Admin Client
  * 提供用户的CRUD操作
  */
 @Service
@@ -23,242 +28,250 @@ public class KeycloakUserService {
 
     private static final Logger logger = LoggerFactory.getLogger(KeycloakUserService.class);
     
-    private final RestTemplate restTemplate;
+    private final Keycloak keycloakAdminClient;
     private final KeycloakConfig keycloakConfig;
-    private final KeycloakAuthService authService;
 
-    public KeycloakUserService(@Qualifier("keycloakRestTemplate") RestTemplate restTemplate,
-                              KeycloakConfig keycloakConfig,
-                              KeycloakAuthService authService) {
-        this.restTemplate = restTemplate;
+    public KeycloakUserService(Keycloak keycloakAdminClient, KeycloakConfig keycloakConfig) {
+        this.keycloakAdminClient = keycloakAdminClient;
         this.keycloakConfig = keycloakConfig;
-        this.authService = authService;
     }
 
     /**
-     * 获取所有用户
+     * 获取目标Realm的资源
+     */
+    private RealmResource getTargetRealmResource() {
+        return keycloakAdminClient.realm(keycloakConfig.getTargetRealm());
+    }
+
+    /**
+     * 将Keycloak UserRepresentation转换为DTO
+     */
+    private KeycloakUserDTO convertToDTO(UserRepresentation user) {
+        KeycloakUserDTO dto = new KeycloakUserDTO();
+        dto.setId(user.getId());
+        dto.setUsername(user.getUsername());
+        dto.setEmail(user.getEmail());
+        dto.setFirstName(user.getFirstName());
+        dto.setLastName(user.getLastName());
+        dto.setEnabled(user.isEnabled());
+        dto.setEmailVerified(user.isEmailVerified());
+        dto.setCreatedTimestamp(user.getCreatedTimestamp());
+        return dto;
+    }
+
+    /**
+     * 将DTO转换为Keycloak UserRepresentation
+     */
+    private UserRepresentation convertFromDTO(KeycloakUserDTO dto) {
+        UserRepresentation user = new UserRepresentation();
+        user.setId(dto.getId());
+        user.setUsername(dto.getUsername());
+        user.setEmail(dto.getEmail());
+        user.setFirstName(dto.getFirstName());
+        user.setLastName(dto.getLastName());
+        user.setEnabled(dto.isEnabled());
+        user.setEmailVerified(dto.isEmailVerified());
+        return user;
+    }
+
+    /**
+     * 获取所有用户 - 使用Admin Client
      */
     public List<KeycloakUserDTO> getAllUsers() {
         return getAllUsers(0, 100);
     }
 
     /**
-     * 分页获取用户
+     * 获取用户列表（分页）- 使用Admin Client
      */
     public List<KeycloakUserDTO> getAllUsers(int first, int max) {
         try {
-            String url = String.format("%s/admin/realms/%s/users?first=%d&max=%d",
-                    keycloakConfig.getKeycloakServerUrl(),
-                    keycloakConfig.getRealm(),
-                    first, max);
-
-            HttpEntity<Void> entity = authService.createAuthEntity();
+            RealmResource realmResource = getTargetRealmResource();
+            UsersResource usersResource = realmResource.users();
             
-            ResponseEntity<List<KeycloakUserDTO>> response = restTemplate.exchange(
-                    url, HttpMethod.GET, entity, 
-                    new ParameterizedTypeReference<List<KeycloakUserDTO>>() {});
-
-            if (response.getStatusCode() == HttpStatus.OK) {
-                logger.debug("Successfully retrieved {} users", 
-                        response.getBody() != null ? response.getBody().size() : 0);
-                return response.getBody();
-            } else {
-                logger.error("Failed to retrieve users, status: {}", response.getStatusCode());
-
-                throw new RuntimeException("Failed to retrieve users from Keycloak");
-            }
+            List<UserRepresentation> users = usersResource.list(first, max);
+            
+            logger.debug("Successfully retrieved {} users using Admin Client", users.size());
+            
+            return users.stream()
+                    .map(this::convertToDTO)
+                    .collect(Collectors.toList());
+                    
         } catch (Exception e) {
-            logger.error("Error retrieving users from Keycloak", e);
+            logger.error("Error retrieving users using Admin Client", e);
             throw new RuntimeException("Error retrieving users from Keycloak", e);
         }
     }
 
     /**
-     * 根据用户名搜索用户
+     * 根据用户名搜索用户 - 使用Admin Client
      */
-    public List<KeycloakUserDTO> searchUsersByUsername(String username) {
+    public List<KeycloakUserDTO> searchUsers(String username) {
         try {
-            String url = String.format("%s/admin/realms/%s/users?username=%s",
-                    keycloakConfig.getKeycloakServerUrl(),
-                    keycloakConfig.getRealm(),
-                    username);
-
-            HttpEntity<Void> entity = authService.createAuthEntity();
+            RealmResource realmResource = getTargetRealmResource();
+            UsersResource usersResource = realmResource.users();
             
-            ResponseEntity<List<KeycloakUserDTO>> response = restTemplate.exchange(
-                    url, HttpMethod.GET, entity, 
-                    new ParameterizedTypeReference<List<KeycloakUserDTO>>() {});
-
-            if (response.getStatusCode() == HttpStatus.OK) {
-                return response.getBody();
-            } else {
-                logger.error("Failed to search users by username, status: {}", response.getStatusCode());
-                throw new RuntimeException("Failed to search users by username");
-            }
+            List<UserRepresentation> users = usersResource.search(username);
+            
+            logger.debug("Successfully found {} users matching: {}", users.size(), username);
+            
+            return users.stream()
+                    .map(this::convertToDTO)
+                    .collect(Collectors.toList());
+                    
         } catch (Exception e) {
-            logger.error("Error searching users by username", e);
-            throw new RuntimeException("Error searching users by username", e);
+            logger.error("Error searching users: {}", username, e);
+            throw new RuntimeException("Error searching users in Keycloak", e);
         }
     }
 
     /**
-     * 根据ID获取用户
+     * 根据ID获取用户 - 使用Admin Client
      */
     public KeycloakUserDTO getUserById(String userId) {
         try {
-            String url = String.format("%s/admin/realms/%s/users/%s",
-                    keycloakConfig.getKeycloakServerUrl(),
-                    keycloakConfig.getRealm(),
-                    userId);
-
-            HttpEntity<Void> entity = authService.createAuthEntity();
+            RealmResource realmResource = getTargetRealmResource();
+            UserResource userResource = realmResource.users().get(userId);
             
-            ResponseEntity<KeycloakUserDTO> response = restTemplate.exchange(
-                    url, HttpMethod.GET, entity, KeycloakUserDTO.class);
-
-            if (response.getStatusCode() == HttpStatus.OK) {
-                return response.getBody();
-            } else {
-                logger.error("Failed to get user by ID, status: {}", response.getStatusCode());
-                throw new RuntimeException("Failed to get user by ID");
-            }
+            UserRepresentation user = userResource.toRepresentation();
+            
+            logger.debug("Successfully retrieved user by ID: {}", userId);
+            return convertToDTO(user);
+            
         } catch (Exception e) {
-            logger.error("Error getting user by ID: {}", userId, e);
-            throw new RuntimeException("Error getting user by ID: " + userId, e);
+            logger.error("Error retrieving user by ID: {}", userId, e);
+            throw new RuntimeException("Error retrieving user from Keycloak", e);
         }
     }
 
     /**
-     * 创建新用户
+     * 创建新用户 - 使用Admin Client
      */
-    public String createUser(KeycloakUserDTO user) {
+    public String createUser(KeycloakUserDTO userDTO) {
         try {
-            String url = String.format("%s/admin/realms/%s/users",
-                    keycloakConfig.getKeycloakServerUrl(),
-                    keycloakConfig.getRealm());
-
-            HttpEntity<KeycloakUserDTO> entity = authService.createAuthEntity(user);
+            RealmResource realmResource = getTargetRealmResource();
+            UsersResource usersResource = realmResource.users();
             
-            ResponseEntity<Void> response = restTemplate.exchange(
-                    url, HttpMethod.POST, entity, Void.class);
-
-            if (response.getStatusCode() == HttpStatus.CREATED) {
-                // 从Location头获取新创建用户的ID
-                String location = response.getHeaders().getFirst("Location");
-                if (location != null) {
-                    String userId = location.substring(location.lastIndexOf('/') + 1);
-                    logger.info("Successfully created user: {}", user.getUsername());
-                    return userId;
-                }
-                throw new RuntimeException("User created but could not retrieve user ID");
+            UserRepresentation user = convertFromDTO(userDTO);
+            
+            Response response = usersResource.create(user);
+            
+            if (response.getStatus() == 201) {
+                String userId = extractUserIdFromLocation(response.getLocation().toString());
+                logger.info("Successfully created user: {} with ID: {}", userDTO.getUsername(), userId);
+                return userId;
             } else {
-                logger.error("Failed to create user, status: {}", response.getStatusCode());
-                throw new RuntimeException("Failed to create user");
+                logger.error("Failed to create user, status: {}", response.getStatus());
+                throw new RuntimeException("Failed to create user in Keycloak");
             }
+            
         } catch (Exception e) {
-            logger.error("Error creating user: {}", user.getUsername(), e);
-            throw new RuntimeException("Error creating user: " + user.getUsername(), e);
+            logger.error("Error creating user: {}", userDTO.getUsername(), e);
+            throw new RuntimeException("Error creating user in Keycloak", e);
         }
     }
 
     /**
-     * 更新用户信息
+     * 从Location头中提取用户ID
      */
-    public void updateUser(String userId, KeycloakUserDTO user) {
+    private String extractUserIdFromLocation(String location) {
+        return location.substring(location.lastIndexOf('/') + 1);
+    }
+
+    /**
+     * 更新用户信息 - 使用Admin Client
+     */
+    public void updateUser(String userId, KeycloakUserDTO userDTO) {
         try {
-            String url = String.format("%s/admin/realms/%s/users/%s",
-                    keycloakConfig.getKeycloakServerUrl(),
-                    keycloakConfig.getRealm(),
-                    userId);
-
-            HttpEntity<KeycloakUserDTO> entity = authService.createAuthEntity(user);
+            RealmResource realmResource = getTargetRealmResource();
+            UserResource userResource = realmResource.users().get(userId);
             
-            ResponseEntity<Void> response = restTemplate.exchange(
-                    url, HttpMethod.PUT, entity, Void.class);
-
-            if (response.getStatusCode() == HttpStatus.NO_CONTENT) {
-                logger.info("Successfully updated user: {}", userId);
-            } else {
-                logger.error("Failed to update user, status: {}", response.getStatusCode());
-                throw new RuntimeException("Failed to update user");
-            }
+            UserRepresentation user = convertFromDTO(userDTO);
+            user.setId(userId); // 确保ID正确
+            
+            userResource.update(user);
+            
+            logger.info("Successfully updated user: {}", userId);
+            
         } catch (Exception e) {
             logger.error("Error updating user: {}", userId, e);
-            throw new RuntimeException("Error updating user: " + userId, e);
+            throw new RuntimeException("Error updating user in Keycloak", e);
         }
     }
 
     /**
-     * 删除用户
+     * 删除用户 - 使用Admin Client
      */
     public void deleteUser(String userId) {
         try {
-            String url = String.format("%s/admin/realms/%s/users/%s",
-                    keycloakConfig.getKeycloakServerUrl(),
-                    keycloakConfig.getRealm(),
-                    userId);
-
-            HttpEntity<Void> entity = authService.createAuthEntity();
+            RealmResource realmResource = getTargetRealmResource();
+            UserResource userResource = realmResource.users().get(userId);
             
-            ResponseEntity<Void> response = restTemplate.exchange(
-                    url, HttpMethod.DELETE, entity, Void.class);
-
-            if (response.getStatusCode() == HttpStatus.NO_CONTENT) {
-                logger.info("Successfully deleted user: {}", userId);
-            } else {
-                logger.error("Failed to delete user, status: {}", response.getStatusCode());
-                throw new RuntimeException("Failed to delete user");
-            }
+            userResource.remove();
+            
+            logger.info("Successfully deleted user: {}", userId);
+            
         } catch (Exception e) {
             logger.error("Error deleting user: {}", userId, e);
-            throw new RuntimeException("Error deleting user: " + userId, e);
+            throw new RuntimeException("Error deleting user from Keycloak", e);
         }
     }
 
     /**
-     * 重置用户密码
+     * 重置用户密码 - 使用Admin Client
      */
-    public void resetUserPassword(String userId, String newPassword, boolean temporary) {
+    public void resetPassword(String userId, String newPassword, boolean temporary) {
         try {
-            String url = String.format("%s/admin/realms/%s/users/%s/reset-password",
-                    keycloakConfig.getKeycloakServerUrl(),
-                    keycloakConfig.getRealm(),
-                    userId);
-
-            Map<String, Object> passwordData = new HashMap<>();
-            passwordData.put("type", "password");
-            passwordData.put("value", newPassword);
-            passwordData.put("temporary", temporary);
-
-            HttpEntity<Map<String, Object>> entity = authService.createAuthEntity(passwordData);
+            RealmResource realmResource = getTargetRealmResource();
+            UserResource userResource = realmResource.users().get(userId);
             
-            ResponseEntity<Void> response = restTemplate.exchange(
-                    url, HttpMethod.PUT, entity, Void.class);
-
-            if (response.getStatusCode() == HttpStatus.NO_CONTENT) {
-                logger.info("Successfully reset password for user: {}", userId);
-            } else {
-                logger.error("Failed to reset password, status: {}", response.getStatusCode());
-                throw new RuntimeException("Failed to reset password");
-            }
+            CredentialRepresentation credential = new CredentialRepresentation();
+            credential.setType(CredentialRepresentation.PASSWORD);
+            credential.setValue(newPassword);
+            credential.setTemporary(temporary);
+            
+            userResource.resetPassword(credential);
+            
+            logger.info("Successfully reset password for user: {}", userId);
+            
         } catch (Exception e) {
             logger.error("Error resetting password for user: {}", userId, e);
-            throw new RuntimeException("Error resetting password for user: " + userId, e);
+            throw new RuntimeException("Error resetting user password in Keycloak", e);
         }
     }
 
     /**
-     * 启用/禁用用户
+     * 启用/禁用用户 - 使用Admin Client
      */
     public void setUserEnabled(String userId, boolean enabled) {
         try {
-            KeycloakUserDTO user = getUserById(userId);
+            RealmResource realmResource = getTargetRealmResource();
+            UserResource userResource = realmResource.users().get(userId);
+            
+            UserRepresentation user = userResource.toRepresentation();
             user.setEnabled(enabled);
-            updateUser(userId, user);
+            
+            userResource.update(user);
+            
             logger.info("Successfully {} user: {}", enabled ? "enabled" : "disabled", userId);
+            
         } catch (Exception e) {
-            logger.error("Error {} user: {}", enabled ? "enabling" : "disabling", userId, e);
-            throw new RuntimeException("Error " + (enabled ? "enabling" : "disabling") + " user: " + userId, e);
+            logger.error("Error setting user enabled status: {}", userId, e);
+            throw new RuntimeException("Error updating user status in Keycloak", e);
         }
+    }
+
+    /**
+     * 根据用户名搜索用户的别名方法 - 保持向后兼容性
+     */
+    public List<KeycloakUserDTO> searchUsersByUsername(String username) {
+        return searchUsers(username);
+    }
+
+    /**
+     * 重置用户密码的别名方法 - 保持向后兼容性
+     */
+    public void resetUserPassword(String userId, String newPassword, Boolean temporary) {
+        resetPassword(userId, newPassword, temporary != null ? temporary : false);
     }
 }

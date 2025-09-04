@@ -158,6 +158,15 @@ public class KeycloakUserDTO {
         this.createdTimestamp = createdTimestamp;
     }
 
+    // 为兼容性添加 is 方法
+    public boolean isEnabled() {
+        return enabled != null ? enabled : false;
+    }
+
+    public boolean isEmailVerified() {
+        return emailVerified != null ? emailVerified : false;
+    }
+
     @Override
     public String toString() {
         return "KeycloakUserDTO{" +

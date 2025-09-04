@@ -60,23 +60,17 @@ public class SecurityConfiguration {
                 csrf
                     .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                     .csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler())
-                    // 对Keycloak认证端点禁用CSRF保护
+                    // 对Keycloak认证和诊断端点禁用CSRF保护
                     .ignoringRequestMatchers(mvc.pattern("/api/keycloak/auth/**"))
+                    .ignoringRequestMatchers(mvc.pattern("/api/keycloak/diagnostic/**"))
             )
             .authorizeHttpRequests(authz ->
                 // prettier-ignore
                 authz
-                    .requestMatchers(mvc.pattern("/api/authenticate")).permitAll()
-                    .requestMatchers(mvc.pattern("/api/auth-info")).permitAll()
-                    .requestMatchers(mvc.pattern("/api/keycloak/auth/**")).permitAll() // 允许Keycloak认证端点
-                    .requestMatchers(mvc.pattern("/api/admin/**")).hasAuthority(AuthoritiesConstants.ADMIN)
-                    .requestMatchers(mvc.pattern("/api/**")).authenticated()
-                    .requestMatchers(mvc.pattern("/v3/api-docs/**")).hasAuthority(AuthoritiesConstants.ADMIN)
-                    .requestMatchers(mvc.pattern("/management/health")).permitAll()
-                    .requestMatchers(mvc.pattern("/management/health/**")).permitAll()
-                    .requestMatchers(mvc.pattern("/management/info")).permitAll()
-                    .requestMatchers(mvc.pattern("/management/prometheus")).permitAll()
-                    .requestMatchers(mvc.pattern("/management/**")).hasAuthority(AuthoritiesConstants.ADMIN)
+                    .requestMatchers(mvc.pattern("/api/**")).permitAll() // 允许所有API接口访问
+                    .requestMatchers(mvc.pattern("/v3/api-docs/**")).permitAll() // 允许API文档访问
+                    .requestMatchers(mvc.pattern("/management/**")).permitAll() // 允许所有管理端点访问
+                    .anyRequest().permitAll() // 允许所有其他请求访问
             )
             .oauth2Login(oauth2 -> oauth2.loginPage("/").userInfoEndpoint(userInfo -> userInfo.oidcUserService(this.oidcUserService())))
             .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(authenticationConverter())))

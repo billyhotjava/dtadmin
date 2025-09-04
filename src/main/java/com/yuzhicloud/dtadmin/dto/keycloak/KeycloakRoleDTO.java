@@ -101,6 +101,15 @@ public class KeycloakRoleDTO {
         this.attributes = attributes;
     }
 
+    // 为兼容性添加 is 方法
+    public boolean isComposite() {
+        return composite != null ? composite : false;
+    }
+
+    public boolean isClientRole() {
+        return clientRole != null ? clientRole : false;
+    }
+
     @Override
     public String toString() {
         return "KeycloakRoleDTO{" +

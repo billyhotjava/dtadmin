@@ -1,21 +1,20 @@
 package com.yuzhicloud.dtadmin.web.rest.keycloak;
 
-import com.yuzhicloud.dtadmin.config.KeycloakConfig;
 import com.yuzhicloud.dtadmin.dto.keycloak.KeycloakTokenDTO;
+import com.yuzhicloud.dtadmin.service.keycloak.KeycloakAuthService;
+import com.yuzhicloud.dtadmin.service.keycloak.KeycloakTokenService;
+import com.yuzhicloud.dtadmin.service.keycloak.KeycloakUserService;
+import org.keycloak.representations.idm.UserRepresentation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.*;
-import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Keycloak登录认证控制器
+ * Keycloak登录认证控制器 - 使用官方Admin Client SDK
  * 提供用户登录和令牌管理功能
  */
 @RestController
@@ -24,13 +23,16 @@ public class KeycloakAuthController {
 
     private static final Logger logger = LoggerFactory.getLogger(KeycloakAuthController.class);
 
-    private final RestTemplate restTemplate;
-    private final KeycloakConfig keycloakConfig;
+    private final KeycloakAuthService authService;
+    private final KeycloakTokenService tokenService;
+    private final KeycloakUserService userService;
 
-    public KeycloakAuthController(@Qualifier("keycloakRestTemplate") RestTemplate restTemplate,
-                                  KeycloakConfig keycloakConfig) {
-        this.restTemplate = restTemplate;
-        this.keycloakConfig = keycloakConfig;
+    public KeycloakAuthController(KeycloakAuthService authService, 
+                                  KeycloakTokenService tokenService,
+                                  KeycloakUserService userService) {
+        this.authService = authService;
+        this.tokenService = tokenService;
+        this.userService = userService;
     }
 
     /**
@@ -173,7 +175,7 @@ public class KeycloakAuthController {
     }
 
     /**
-     * 用户登录接口
+     * 用户登录接口 - 使用官方Admin Client SDK
      * 
      * @param loginRequest 登录请求，包含用户名和密码
      * @return 登录响应，包含访问令牌和用户信息
@@ -181,69 +183,50 @@ public class KeycloakAuthController {
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
         try {
-            logger.info("User login attempt: {}", loginRequest.getUsername());
+            logger.info("User login attempt using Admin Client SDK: {}", loginRequest.getUsername());
 
-            // 构建Keycloak令牌请求URL
-            String tokenUrl = String.format("%s/realms/%s/protocol/openid_connect/token",
-                    keycloakConfig.getKeycloakServerUrl(),
-                    keycloakConfig.getRealm());
-
-            logger.debug("Keycloak token URL: {}", tokenUrl);
-
-            // 设置请求头
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-
-            // 构建请求参数
-            MultiValueMap<String, String> map = new LinkedMultiValueMap<>();
-            map.add("grant_type", "password");
-            map.add("client_id", keycloakConfig.getClientId());
-            map.add("username", loginRequest.getUsername());
-            map.add("password", loginRequest.getPassword());
-
-            // 如果配置了客户端密钥，添加到请求中
-            if (keycloakConfig.getClientSecret() != null && !keycloakConfig.getClientSecret().isEmpty()) {
-                map.add("client_secret", keycloakConfig.getClientSecret());
-            }
-
-            HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(map, headers);
-
-            // 发送登录请求到Keycloak
-            ResponseEntity<KeycloakTokenDTO> response = restTemplate.postForEntity(
-                    tokenUrl, request, KeycloakTokenDTO.class);
-
-            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-                KeycloakTokenDTO token = response.getBody();
-                
-                // 获取用户信息（这里简化处理，实际应该从Keycloak获取详细用户信息）
-                UserInfo userInfo = new UserInfo(
-                        "user-" + loginRequest.getUsername(), // 临时ID
-                        loginRequest.getUsername(),
-                        loginRequest.getUsername() + "@example.com", // 临时邮箱
-                        "",
-                        "",
-                        true
+            // 使用官方SDK进行认证
+            KeycloakTokenDTO token = authService.login(loginRequest.getUsername(), loginRequest.getPassword());
+            
+            // 获取用户信息
+            UserRepresentation userRep = authService.getUserByUsername(loginRequest.getUsername());
+            UserInfo userInfo;
+            
+            if (userRep != null) {
+                userInfo = new UserInfo(
+                    userRep.getId(),
+                    userRep.getUsername(),
+                    userRep.getEmail(),
+                    userRep.getFirstName(),
+                    userRep.getLastName(),
+                    userRep.isEnabled()
                 );
-
-                LoginResponse loginResponse = new LoginResponse(token, userInfo);
-                
-                logger.info("User login successful: {}", loginRequest.getUsername());
-                return ResponseEntity.ok(createSuccessResponse(loginResponse));
             } else {
-                logger.warn("Login failed for user: {}, status: {}", 
-                        loginRequest.getUsername(), response.getStatusCode());
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .body(createErrorResponse("登录失败：用户名或密码错误"));
+                // 如果获取不到用户信息，使用默认值
+                userInfo = new UserInfo(
+                    "user-" + loginRequest.getUsername(),
+                    loginRequest.getUsername(),
+                    loginRequest.getUsername() + "@example.com",
+                    "",
+                    "",
+                    true
+                );
             }
+
+            LoginResponse loginResponse = new LoginResponse(token, userInfo);
+            
+            logger.info("User login successful using Admin Client SDK: {}", loginRequest.getUsername());
+            return ResponseEntity.ok(createSuccessResponse(loginResponse));
+            
         } catch (Exception e) {
             logger.error("Login error for user: {}", loginRequest.getUsername(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(createErrorResponse("登录失败：" + e.getMessage()));
         }
     }
 
     /**
-     * 刷新令牌接口
+     * 刷新令牌接口 - 使用REST API实现
      * 
      * @param request 刷新令牌请求
      * @return 新的访问令牌
@@ -251,42 +234,23 @@ public class KeycloakAuthController {
     @PostMapping("/refresh")
     public ResponseEntity<?> refreshToken(@RequestBody RefreshRequest request) {
         try {
-            String tokenUrl = String.format("%s/realms/%s/protocol/openid_connect/token",
-                    keycloakConfig.getKeycloakServerUrl(),
-                    keycloakConfig.getRealm());
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-
-            MultiValueMap<String, String> map = new LinkedMultiValueMap<>();
-            map.add("grant_type", "refresh_token");
-            map.add("client_id", keycloakConfig.getClientId());
-            map.add("refresh_token", request.getRefreshToken());
-
-            if (keycloakConfig.getClientSecret() != null && !keycloakConfig.getClientSecret().isEmpty()) {
-                map.add("client_secret", keycloakConfig.getClientSecret());
-            }
-
-            HttpEntity<MultiValueMap<String, String>> httpRequest = new HttpEntity<>(map, headers);
-
-            ResponseEntity<KeycloakTokenDTO> response = restTemplate.postForEntity(
-                    tokenUrl, httpRequest, KeycloakTokenDTO.class);
-
-            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-                return ResponseEntity.ok(createSuccessResponse(response.getBody()));
-            } else {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .body(createErrorResponse("令牌刷新失败"));
-            }
+            logger.info("Token refresh attempt using REST API");
+            
+            // 使用REST API刷新令牌
+            KeycloakTokenDTO token = tokenService.refreshToken(request.getRefreshToken());
+            
+            logger.info("Token refresh successful using REST API");
+            return ResponseEntity.ok(createSuccessResponse(token));
+            
         } catch (Exception e) {
             logger.error("Token refresh error", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(createErrorResponse("令牌刷新失败：" + e.getMessage()));
         }
     }
 
     /**
-     * 用户登出接口
+     * 用户登出接口 - 使用REST API实现
      * 
      * @param request 登出请求
      * @return 登出结果
@@ -294,27 +258,14 @@ public class KeycloakAuthController {
     @PostMapping("/logout")
     public ResponseEntity<?> logout(@RequestBody LogoutRequest request) {
         try {
-            String logoutUrl = String.format("%s/realms/%s/protocol/openid_connect/logout",
-                    keycloakConfig.getKeycloakServerUrl(),
-                    keycloakConfig.getRealm());
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-
-            MultiValueMap<String, String> map = new LinkedMultiValueMap<>();
-            map.add("client_id", keycloakConfig.getClientId());
-            map.add("refresh_token", request.getRefreshToken());
-
-            if (keycloakConfig.getClientSecret() != null && !keycloakConfig.getClientSecret().isEmpty()) {
-                map.add("client_secret", keycloakConfig.getClientSecret());
-            }
-
-            HttpEntity<MultiValueMap<String, String>> httpRequest = new HttpEntity<>(map, headers);
-
-            restTemplate.postForEntity(logoutUrl, httpRequest, String.class);
+            logger.info("User logout attempt using REST API");
             
-            logger.info("User logout successful");
+            // 使用REST API执行登出
+            tokenService.logout(request.getRefreshToken());
+            
+            logger.info("User logout successful using REST API");
             return ResponseEntity.ok(createSuccessResponse("登出成功"));
+            
         } catch (Exception e) {
             logger.error("Logout error", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

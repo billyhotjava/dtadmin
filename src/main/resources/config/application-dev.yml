@@ -19,6 +19,7 @@ logging:
     tech.jhipster: DEBUG
     org.hibernate.SQL: DEBUG
     com.yuzhi.dtadmin: DEBUG
+    com.yuzhicloud.dtadmin: DEBUG
 
 spring:
   devtools:
@@ -27,6 +28,9 @@ spring:
       additional-exclude: static/**
     livereload:
       enabled: false # we use Webpack dev server + BrowserSync for livereload
+  docker:
+    compose:
+      enabled: false # 禁用Docker Compose自动启动
   jackson:
     serialization:
       indent-output: true
@@ -65,7 +69,7 @@ jhipster:
   # CORS is only enabled by default with the "dev" profile
   cors:
     # Allow Ionic for JHipster by default (* no longer allowed in Spring Boot 2.4+)
-    allowed-origins: 'http://localhost:8100,https://localhost:8100,http://localhost:3003,https://localhost:3003,http://localhost:3000,https://localhost:3000'
+    allowed-origins: 'http://localhost:8100,https://localhost:8100,http://localhost:3003,https://localhost:3003,http://localhost:3000,https://localhost:3000,http://localhost:3001,https://localhost:3001'
     # Enable CORS when running in GitHub Codespaces
     allowed-origin-patterns: 'https://*.githubpreview.dev'
     allowed-methods: '*'
@@ -91,17 +95,22 @@ jhipster:
 
 # application:
 
-# Keycloak 自定义配置
+# Keycloak 自定义配置 - 使用管理API
 app:
   keycloak:
     server-url: https://sso.yuzhicloud.com
-    realm: s10
-    # 尝试不同的客户端配置
-    client-id: web-app
-    client-secret: 
+    # 管理API认证使用master realm
+    auth-realm: master
+    # 目标管理的realm
+    target-realm: s10
+    # 管理客户端配置
     admin:
-      username: admin
-      password: admin
+      username: ssoadmin
+      password: Devops123@
       client-id: admin-cli
+    # 普通客户端配置（用于用户登录）
+    # 注意：web-app客户端需要在Keycloak中配置为支持Direct Access Grants
+    client-id: admin-cli  # 临时使用admin-cli进行测试
+    client-secret: 
     ssl:
       trust-all: true

@@ -1,5 +1,7 @@
 package com.yuzhicloud.dtadmin.config;
 
+import org.keycloak.admin.client.Keycloak;
+import org.keycloak.admin.client.KeycloakBuilder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,7 +16,7 @@ import java.security.SecureRandom;
 
 /**
  * Keycloak配置类
- * 提供RestTemplate bean用于调用Keycloak Admin API
+ * 提供Keycloak Admin Client bean用于调用Keycloak Admin API
  * 支持SSL证书忽略配置
  */
 @Configuration
@@ -23,8 +25,11 @@ public class KeycloakConfig {
     @Value("${app.keycloak.server-url:https://sso.yuzhicloud.com}")
     private String keycloakServerUrl;
 
-    @Value("${app.keycloak.realm:s10}")
-    private String realm;
+    @Value("${app.keycloak.auth-realm:master}")
+    private String authRealm;
+
+    @Value("${app.keycloak.target-realm:s10}")
+    private String targetRealm;
 
     @Value("${app.keycloak.admin.username:admin}")
     private String adminUsername;
@@ -45,35 +50,61 @@ public class KeycloakConfig {
     private boolean trustAllCertificates;
 
     /**
-     * 创建用于Keycloak API调用的RestTemplate
+     * 创建Keycloak Admin Client
+     * 用于调用Keycloak管理API
+     */
+    @Bean
+    public Keycloak keycloakAdminClient() throws Exception {
+        if (trustAllCertificates) {
+            configureTrustAllCertificates();
+        }
+        
+        return KeycloakBuilder.builder()
+                .serverUrl(keycloakServerUrl)
+                .realm(authRealm)  // 使用master realm进行管理认证
+                .clientId(adminClientId)
+                .username(adminUsername)
+                .password(adminPassword)
+                .build();
+    }
+
+    /**
+     * 创建用于Keycloak REST API调用的RestTemplate
      * 如果配置了trust-all-certificates，则忽略SSL证书验证
      */
     @Bean("keycloakRestTemplate")
     public RestTemplate keycloakRestTemplate() throws Exception {
         if (trustAllCertificates) {
-            // 创建信任所有证书的TrustManager
-            TrustManager[] trustAllCerts = new TrustManager[] {
-                new X509TrustManager() {
-                    public X509Certificate[] getAcceptedIssuers() {
-                        return null;
-                    }
-                    public void checkClientTrusted(X509Certificate[] certs, String authType) {
-                    }
-                    public void checkServerTrusted(X509Certificate[] certs, String authType) {
-                    }
-                }
-            };
-
-            // 安装信任所有证书的TrustManager
-            SSLContext sc = SSLContext.getInstance("SSL");
-            sc.init(null, trustAllCerts, new SecureRandom());
-            HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
-            
-            // 禁用主机名验证
-            HttpsURLConnection.setDefaultHostnameVerifier((hostname, session) -> true);
+            configureTrustAllCertificates();
         }
         
         return new RestTemplate();
+    }
+
+    /**
+     * 配置信任所有SSL证书
+     */
+    private void configureTrustAllCertificates() throws Exception {
+        // 创建信任所有证书的TrustManager
+        TrustManager[] trustAllCerts = new TrustManager[] {
+            new X509TrustManager() {
+                public X509Certificate[] getAcceptedIssuers() {
+                    return null;
+                }
+                public void checkClientTrusted(X509Certificate[] certs, String authType) {
+                }
+                public void checkServerTrusted(X509Certificate[] certs, String authType) {
+                }
+            }
+        };
+
+        // 安装信任所有证书的TrustManager
+        SSLContext sc = SSLContext.getInstance("SSL");
+        sc.init(null, trustAllCerts, new SecureRandom());
+        HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
+        
+        // 禁用主机名验证
+        HttpsURLConnection.setDefaultHostnameVerifier((hostname, session) -> true);
     }
 
     public String getKeycloakServerUrl() {
@@ -81,7 +112,26 @@ public class KeycloakConfig {
     }
 
     public String getRealm() {
-        return realm;
+        return authRealm;
+    }
+
+    public String getTargetRealm() {
+        return targetRealm;
+    }
+
+    /**
+     * 获取管理API的基础URL
+     */
+    public String getAdminApiBaseUrl() {
+        return keycloakServerUrl + "/admin";
+    }
+
+    /**
+     * 获取认证用的token URL
+     */
+    public String getAuthTokenUrl() {
+        return String.format("%s/realms/%s/protocol/openid-connect/token", 
+                keycloakServerUrl, authRealm);
     }
 
     public String getAdminUsername() {

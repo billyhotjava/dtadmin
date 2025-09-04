@@ -2,18 +2,22 @@ package com.yuzhicloud.dtadmin.service.keycloak;
 
 import com.yuzhicloud.dtadmin.config.KeycloakConfig;
 import com.yuzhicloud.dtadmin.dto.keycloak.KeycloakRoleDTO;
+import org.keycloak.admin.client.Keycloak;
+import org.keycloak.admin.client.resource.RealmResource;
+import org.keycloak.admin.client.resource.RoleResource;
+import org.keycloak.admin.client.resource.RolesResource;
+import org.keycloak.admin.client.resource.UserResource;
+import org.keycloak.representations.idm.RoleRepresentation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.*;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
- * Keycloak角色管理服务
+ * Keycloak角色管理服务 - 使用官方Admin Client
  * 提供角色的CRUD操作
  */
 @Service
@@ -21,121 +25,123 @@ public class KeycloakRoleService {
 
     private static final Logger logger = LoggerFactory.getLogger(KeycloakRoleService.class);
     
-    private final RestTemplate restTemplate;
+    private final Keycloak keycloakAdminClient;
     private final KeycloakConfig keycloakConfig;
-    private final KeycloakAuthService authService;
 
-    public KeycloakRoleService(@Qualifier("keycloakRestTemplate") RestTemplate restTemplate,
-                              KeycloakConfig keycloakConfig,
-                              KeycloakAuthService authService) {
-        this.restTemplate = restTemplate;
+    public KeycloakRoleService(Keycloak keycloakAdminClient, KeycloakConfig keycloakConfig) {
+        this.keycloakAdminClient = keycloakAdminClient;
         this.keycloakConfig = keycloakConfig;
-        this.authService = authService;
     }
 
     /**
-     * 获取所有Realm角色
+     * 获取目标Realm的资源
+     */
+    private RealmResource getTargetRealmResource() {
+        return keycloakAdminClient.realm(keycloakConfig.getTargetRealm());
+    }
+
+    /**
+     * 获取所有Realm角色 - 使用Admin Client
      */
     public List<KeycloakRoleDTO> getAllRealmRoles() {
         try {
-            String url = String.format("%s/admin/realms/%s/roles",
-                    keycloakConfig.getKeycloakServerUrl(),
-                    keycloakConfig.getRealm());
-
-            HttpEntity<Void> entity = authService.createAuthEntity();
+            RealmResource realmResource = getTargetRealmResource();
+            RolesResource rolesResource = realmResource.roles();
             
-            ResponseEntity<List<KeycloakRoleDTO>> response = restTemplate.exchange(
-                    url, HttpMethod.GET, entity, 
-                    new ParameterizedTypeReference<List<KeycloakRoleDTO>>() {});
-
-            if (response.getStatusCode() == HttpStatus.OK) {
-                logger.debug("Successfully retrieved {} realm roles", 
-                        response.getBody() != null ? response.getBody().size() : 0);
-                return response.getBody();
-            } else {
-                logger.error("Failed to retrieve realm roles, status: {}", response.getStatusCode());
-                throw new RuntimeException("Failed to retrieve realm roles from Keycloak");
-            }
+            List<RoleRepresentation> roles = rolesResource.list();
+            
+            logger.debug("Successfully retrieved {} realm roles using Admin Client", roles.size());
+            
+            return roles.stream()
+                    .map(this::convertToDTO)
+                    .collect(Collectors.toList());
+                    
         } catch (Exception e) {
-            logger.error("Error retrieving realm roles from Keycloak", e);
+            logger.error("Error retrieving realm roles using Admin Client", e);
             throw new RuntimeException("Error retrieving realm roles from Keycloak", e);
         }
     }
 
     /**
-     * 根据名称获取Realm角色
+     * 将Keycloak RoleRepresentation转换为DTO
+     */
+    private KeycloakRoleDTO convertToDTO(RoleRepresentation role) {
+        KeycloakRoleDTO dto = new KeycloakRoleDTO();
+        dto.setId(role.getId());
+        dto.setName(role.getName());
+        dto.setDescription(role.getDescription());
+        // 设置基本属性，不设置 composite 和 clientRole时默认为 false
+        dto.setComposite(false);
+        dto.setClientRole(false);
+        dto.setContainerId(role.getContainerId());
+        return dto;
+    }
+
+    /**
+     * 将DTO转换为Keycloak RoleRepresentation
+     */
+    private RoleRepresentation convertFromDTO(KeycloakRoleDTO dto) {
+        RoleRepresentation role = new RoleRepresentation();
+        role.setId(dto.getId());
+        role.setName(dto.getName());
+        role.setDescription(dto.getDescription());
+        role.setComposite(dto.isComposite());
+        role.setClientRole(dto.isClientRole());
+        role.setContainerId(dto.getContainerId());
+        return role;
+    }
+
+    /**
+     * 根据名称获取Realm角色 - 使用Admin Client
      */
     public KeycloakRoleDTO getRealmRoleByName(String roleName) {
         try {
-            String url = String.format("%s/admin/realms/%s/roles/%s",
-                    keycloakConfig.getKeycloakServerUrl(),
-                    keycloakConfig.getRealm(),
-                    roleName);
-
-            HttpEntity<Void> entity = authService.createAuthEntity();
+            RealmResource realmResource = getTargetRealmResource();
+            RoleResource roleResource = realmResource.roles().get(roleName);
             
-            ResponseEntity<KeycloakRoleDTO> response = restTemplate.exchange(
-                    url, HttpMethod.GET, entity, KeycloakRoleDTO.class);
-
-            if (response.getStatusCode() == HttpStatus.OK) {
-                return response.getBody();
-            } else {
-                logger.error("Failed to get realm role by name, status: {}", response.getStatusCode());
-                throw new RuntimeException("Failed to get realm role by name");
-            }
+            RoleRepresentation role = roleResource.toRepresentation();
+            
+            logger.debug("Successfully retrieved role by name: {}", roleName);
+            return convertToDTO(role);
+            
         } catch (Exception e) {
-            logger.error("Error getting realm role by name: {}", roleName, e);
+            logger.error("Error retrieving role by name: {}", roleName, e);
             throw new RuntimeException("Error getting realm role by name: " + roleName, e);
         }
     }
 
     /**
-     * 创建新的Realm角色
+     * 创建新的Realm角色 - 使用Admin Client
      */
-    public void createRealmRole(KeycloakRoleDTO role) {
+    public void createRealmRole(KeycloakRoleDTO roleDTO) {
         try {
-            String url = String.format("%s/admin/realms/%s/roles",
-                    keycloakConfig.getKeycloakServerUrl(),
-                    keycloakConfig.getRealm());
-
-            HttpEntity<KeycloakRoleDTO> entity = authService.createAuthEntity(role);
+            RealmResource realmResource = getTargetRealmResource();
+            RolesResource rolesResource = realmResource.roles();
             
-            ResponseEntity<Void> response = restTemplate.exchange(
-                    url, HttpMethod.POST, entity, Void.class);
-
-            if (response.getStatusCode() == HttpStatus.CREATED) {
-                logger.info("Successfully created realm role: {}", role.getName());
-            } else {
-                logger.error("Failed to create realm role, status: {}", response.getStatusCode());
-                throw new RuntimeException("Failed to create realm role");
-            }
+            RoleRepresentation role = convertFromDTO(roleDTO);
+            rolesResource.create(role);
+            
+            logger.info("Successfully created realm role: {}", roleDTO.getName());
+            
         } catch (Exception e) {
-            logger.error("Error creating realm role: {}", role.getName(), e);
-            throw new RuntimeException("Error creating realm role: " + role.getName(), e);
+            logger.error("Error creating realm role: {}", roleDTO.getName(), e);
+            throw new RuntimeException("Error creating realm role: " + roleDTO.getName(), e);
         }
     }
 
     /**
-     * 更新Realm角色
+     * 更新Realm角色 - 使用Admin Client
      */
-    public void updateRealmRole(String roleName, KeycloakRoleDTO role) {
+    public void updateRealmRole(String roleName, KeycloakRoleDTO roleDTO) {
         try {
-            String url = String.format("%s/admin/realms/%s/roles/%s",
-                    keycloakConfig.getKeycloakServerUrl(),
-                    keycloakConfig.getRealm(),
-                    roleName);
-
-            HttpEntity<KeycloakRoleDTO> entity = authService.createAuthEntity(role);
+            RealmResource realmResource = getTargetRealmResource();
+            RoleResource roleResource = realmResource.roles().get(roleName);
             
-            ResponseEntity<Void> response = restTemplate.exchange(
-                    url, HttpMethod.PUT, entity, Void.class);
-
-            if (response.getStatusCode() == HttpStatus.NO_CONTENT) {
-                logger.info("Successfully updated realm role: {}", roleName);
-            } else {
-                logger.error("Failed to update realm role, status: {}", response.getStatusCode());
-                throw new RuntimeException("Failed to update realm role");
-            }
+            RoleRepresentation role = convertFromDTO(roleDTO);
+            roleResource.update(role);
+            
+            logger.info("Successfully updated realm role: {}", roleName);
+            
         } catch (Exception e) {
             logger.error("Error updating realm role: {}", roleName, e);
             throw new RuntimeException("Error updating realm role: " + roleName, e);
@@ -143,26 +149,17 @@ public class KeycloakRoleService {
     }
 
     /**
-     * 删除Realm角色
+     * 删除Realm角色 - 使用Admin Client
      */
     public void deleteRealmRole(String roleName) {
         try {
-            String url = String.format("%s/admin/realms/%s/roles/%s",
-                    keycloakConfig.getKeycloakServerUrl(),
-                    keycloakConfig.getRealm(),
-                    roleName);
-
-            HttpEntity<Void> entity = authService.createAuthEntity();
+            RealmResource realmResource = getTargetRealmResource();
+            RoleResource roleResource = realmResource.roles().get(roleName);
             
-            ResponseEntity<Void> response = restTemplate.exchange(
-                    url, HttpMethod.DELETE, entity, Void.class);
-
-            if (response.getStatusCode() == HttpStatus.NO_CONTENT) {
-                logger.info("Successfully deleted realm role: {}", roleName);
-            } else {
-                logger.error("Failed to delete realm role, status: {}", response.getStatusCode());
-                throw new RuntimeException("Failed to delete realm role");
-            }
+            roleResource.remove();
+            
+            logger.info("Successfully deleted realm role: {}", roleName);
+            
         } catch (Exception e) {
             logger.error("Error deleting realm role: {}", roleName, e);
             throw new RuntimeException("Error deleting realm role: " + roleName, e);
@@ -170,26 +167,21 @@ public class KeycloakRoleService {
     }
 
     /**
-     * 为用户分配Realm角色
+     * 为用户分配Realm角色 - 使用Admin Client
      */
-    public void assignRealmRolesToUser(String userId, List<KeycloakRoleDTO> roles) {
+    public void assignRealmRolesToUser(String userId, List<KeycloakRoleDTO> roleDTOs) {
         try {
-            String url = String.format("%s/admin/realms/%s/users/%s/role-mappings/realm",
-                    keycloakConfig.getKeycloakServerUrl(),
-                    keycloakConfig.getRealm(),
-                    userId);
-
-            HttpEntity<List<KeycloakRoleDTO>> entity = authService.createAuthEntity(roles);
+            RealmResource realmResource = getTargetRealmResource();
+            UserResource userResource = realmResource.users().get(userId);
             
-            ResponseEntity<Void> response = restTemplate.exchange(
-                    url, HttpMethod.POST, entity, Void.class);
-
-            if (response.getStatusCode() == HttpStatus.NO_CONTENT) {
-                logger.info("Successfully assigned {} realm roles to user: {}", roles.size(), userId);
-            } else {
-                logger.error("Failed to assign realm roles to user, status: {}", response.getStatusCode());
-                throw new RuntimeException("Failed to assign realm roles to user");
-            }
+            List<RoleRepresentation> roles = roleDTOs.stream()
+                    .map(this::convertFromDTO)
+                    .collect(Collectors.toList());
+                    
+            userResource.roles().realmLevel().add(roles);
+            
+            logger.info("Successfully assigned {} realm roles to user: {}", roles.size(), userId);
+            
         } catch (Exception e) {
             logger.error("Error assigning realm roles to user: {}", userId, e);
             throw new RuntimeException("Error assigning realm roles to user: " + userId, e);
@@ -197,26 +189,21 @@ public class KeycloakRoleService {
     }
 
     /**
-     * 移除用户的Realm角色
+     * 移除用户的Realm角色 - 使用Admin Client
      */
-    public void removeRealmRolesFromUser(String userId, List<KeycloakRoleDTO> roles) {
+    public void removeRealmRolesFromUser(String userId, List<KeycloakRoleDTO> roleDTOs) {
         try {
-            String url = String.format("%s/admin/realms/%s/users/%s/role-mappings/realm",
-                    keycloakConfig.getKeycloakServerUrl(),
-                    keycloakConfig.getRealm(),
-                    userId);
-
-            HttpEntity<List<KeycloakRoleDTO>> entity = authService.createAuthEntity(roles);
+            RealmResource realmResource = getTargetRealmResource();
+            UserResource userResource = realmResource.users().get(userId);
             
-            ResponseEntity<Void> response = restTemplate.exchange(
-                    url, HttpMethod.DELETE, entity, Void.class);
-
-            if (response.getStatusCode() == HttpStatus.NO_CONTENT) {
-                logger.info("Successfully removed {} realm roles from user: {}", roles.size(), userId);
-            } else {
-                logger.error("Failed to remove realm roles from user, status: {}", response.getStatusCode());
-                throw new RuntimeException("Failed to remove realm roles from user");
-            }
+            List<RoleRepresentation> roles = roleDTOs.stream()
+                    .map(this::convertFromDTO)
+                    .collect(Collectors.toList());
+                    
+            userResource.roles().realmLevel().remove(roles);
+            
+            logger.info("Successfully removed {} realm roles from user: {}", roles.size(), userId);
+            
         } catch (Exception e) {
             logger.error("Error removing realm roles from user: {}", userId, e);
             throw new RuntimeException("Error removing realm roles from user: " + userId, e);
@@ -224,30 +211,24 @@ public class KeycloakRoleService {
     }
 
     /**
-     * 获取用户的Realm角色
+     * 获取用户的Realm角色 - 使用Admin Client
      */
     public List<KeycloakRoleDTO> getUserRealmRoles(String userId) {
         try {
-            String url = String.format("%s/admin/realms/%s/users/%s/role-mappings/realm",
-                    keycloakConfig.getKeycloakServerUrl(),
-                    keycloakConfig.getRealm(),
-                    userId);
-
-            HttpEntity<Void> entity = authService.createAuthEntity();
+            RealmResource realmResource = getTargetRealmResource();
+            UserResource userResource = realmResource.users().get(userId);
             
-            ResponseEntity<List<KeycloakRoleDTO>> response = restTemplate.exchange(
-                    url, HttpMethod.GET, entity, 
-                    new ParameterizedTypeReference<List<KeycloakRoleDTO>>() {});
-
-            if (response.getStatusCode() == HttpStatus.OK) {
-                return response.getBody();
-            } else {
-                logger.error("Failed to get user realm roles, status: {}", response.getStatusCode());
-                throw new RuntimeException("Failed to get user realm roles");
-            }
+            List<RoleRepresentation> roles = userResource.roles().realmLevel().listEffective();
+            
+            logger.debug("Successfully retrieved {} realm roles for user: {}", roles.size(), userId);
+            
+            return roles.stream()
+                    .map(this::convertToDTO)
+                    .collect(Collectors.toList());
+                    
         } catch (Exception e) {
-            logger.error("Error getting realm roles for user: {}", userId, e);
-            throw new RuntimeException("Error getting realm roles for user: " + userId, e);
+            logger.error("Error retrieving user realm roles", e);
+            throw new RuntimeException("Error retrieving user realm roles from Keycloak", e);
         }
     }
 }
