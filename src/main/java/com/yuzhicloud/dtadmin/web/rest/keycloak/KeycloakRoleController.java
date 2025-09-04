@@ -18,7 +18,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/keycloak/roles")
-@PreAuthorize("hasRole('ADMIN')")
+// @PreAuthorize("hasRole('ADMIN')") // 暂时禁用，由Keycloak处理权限
 public class KeycloakRoleController {
 
     private static final Logger logger = LoggerFactory.getLogger(KeycloakRoleController.class);

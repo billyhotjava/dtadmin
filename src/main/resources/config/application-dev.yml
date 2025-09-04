@@ -34,6 +34,8 @@ spring:
   jackson:
     serialization:
       indent-output: true
+    deserialization:
+      fail-on-unknown-properties: false
   datasource:
     type: com.zaxxer.hikari.HikariDataSource
     url: jdbc:mysql://db.weitaor.com:3306/dtadmin

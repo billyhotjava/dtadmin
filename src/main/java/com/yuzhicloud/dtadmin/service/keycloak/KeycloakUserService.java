@@ -89,7 +89,13 @@ public class KeycloakUserService {
             RealmResource realmResource = getTargetRealmResource();
             UsersResource usersResource = realmResource.users();
             
+            // 使用只包含基本参数的查询，避免获取详细的profile metadata
             List<UserRepresentation> users = usersResource.list(first, max);
+            
+            // 清理可能导致问题的字段
+            users.forEach(user -> {
+                user.setUserProfileMetadata(null);
+            });
             
             logger.debug("Successfully retrieved {} users using Admin Client", users.size());
             
@@ -111,7 +117,13 @@ public class KeycloakUserService {
             RealmResource realmResource = getTargetRealmResource();
             UsersResource usersResource = realmResource.users();
             
+            // 使用基本的搜索方法
             List<UserRepresentation> users = usersResource.search(username);
+            
+            // 清理可能导致问题的字段
+            users.forEach(user -> {
+                user.setUserProfileMetadata(null);
+            });
             
             logger.debug("Successfully found {} users matching: {}", users.size(), username);
             
@@ -133,7 +145,11 @@ public class KeycloakUserService {
             RealmResource realmResource = getTargetRealmResource();
             UserResource userResource = realmResource.users().get(userId);
             
+            // 获取基本的用户信息
             UserRepresentation user = userResource.toRepresentation();
+            
+            // 清理可能导致问题的字段
+            user.setUserProfileMetadata(null);
             
             logger.debug("Successfully retrieved user by ID: {}", userId);
             return convertToDTO(user);
@@ -248,7 +264,11 @@ public class KeycloakUserService {
             RealmResource realmResource = getTargetRealmResource();
             UserResource userResource = realmResource.users().get(userId);
             
+            // 获取基本的用户信息
             UserRepresentation user = userResource.toRepresentation();
+            
+            // 清理可能导致问题的字段
+            user.setUserProfileMetadata(null);
             user.setEnabled(enabled);
             
             userResource.update(user);

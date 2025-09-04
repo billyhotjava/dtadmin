@@ -1,5 +1,7 @@
 package com.yuzhicloud.dtadmin.config;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.KeycloakBuilder;
 import org.springframework.beans.factory.annotation.Value;
@@ -58,6 +60,9 @@ public class KeycloakConfig {
         if (trustAllCertificates) {
             configureTrustAllCertificates();
         }
+        
+        // 配置Jackson忽略未知属性以解决版本兼容性问题
+        System.setProperty("keycloak.jackson.configure-disable-fail-on-unknown-properties", "true");
         
         return KeycloakBuilder.builder()
                 .serverUrl(keycloakServerUrl)

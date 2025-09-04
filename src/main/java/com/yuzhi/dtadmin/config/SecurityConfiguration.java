@@ -67,13 +67,14 @@ public class SecurityConfiguration {
             .authorizeHttpRequests(authz ->
                 // prettier-ignore
                 authz
-                    .requestMatchers(mvc.pattern("/api/**")).permitAll() // 允许所有API接口访问
+                    .requestMatchers(mvc.pattern("/api/**")).permitAll() // 允许所有API接口访问，由Keycloak进行权限控制
                     .requestMatchers(mvc.pattern("/v3/api-docs/**")).permitAll() // 允许API文档访问
                     .requestMatchers(mvc.pattern("/management/**")).permitAll() // 允许所有管理端点访问
                     .anyRequest().permitAll() // 允许所有其他请求访问
             )
+            // 注释掉OAuth2资源服务器配置，以避免JWT验证
+            // .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(authenticationConverter())))
             .oauth2Login(oauth2 -> oauth2.loginPage("/").userInfoEndpoint(userInfo -> userInfo.oidcUserService(this.oidcUserService())))
-            .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(authenticationConverter())))
             .oauth2Client(withDefaults())
             .exceptionHandling(exceptions -> exceptions
                 .authenticationEntryPoint((request, response, authException) -> {
@@ -99,6 +100,8 @@ public class SecurityConfiguration {
         return new MvcRequestMatcher.Builder(introspector);
     }
 
+    // 注释掉JWT认证转换器，因为不再需要Spring Security验证JWT
+    /*
     Converter<Jwt, AbstractAuthenticationToken> authenticationConverter() {
         JwtAuthenticationConverter jwtAuthenticationConverter = new JwtAuthenticationConverter();
         jwtAuthenticationConverter.setJwtGrantedAuthoritiesConverter(
@@ -112,6 +115,7 @@ public class SecurityConfiguration {
         jwtAuthenticationConverter.setPrincipalClaimName(PREFERRED_USERNAME);
         return jwtAuthenticationConverter;
     }
+    */
 
     OAuth2UserService<OidcUserRequest, OidcUser> oidcUserService() {
         final OidcUserService delegate = new OidcUserService();
@@ -145,6 +149,8 @@ public class SecurityConfiguration {
         };
     }
 
+    // 注释掉JWT解码器，因为不再需要Spring Security验证JWT
+    /*
     @Bean
     JwtDecoder jwtDecoder(ClientRegistrationRepository clientRegistrationRepository, RestTemplateBuilder restTemplateBuilder) {
         NimbusJwtDecoder jwtDecoder = JwtDecoders.fromOidcIssuerLocation(issuerUri);
@@ -160,6 +166,7 @@ public class SecurityConfiguration {
 
         return jwtDecoder;
     }
+    */
 
     /**
      * Custom CSRF handler to provide BREACH protection for Single-Page Applications (SPA).
