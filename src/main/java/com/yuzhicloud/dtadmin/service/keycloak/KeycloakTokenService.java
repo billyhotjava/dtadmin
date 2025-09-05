@@ -30,6 +30,44 @@ public class KeycloakTokenService {
     }
 
     /**
+     * 获取管理员访问令牌 - 使用REST API实现
+     * 
+     * @return 访问令牌
+     */
+    public String getAccessToken() {
+        try {
+            String tokenUrl = String.format("%s/realms/%s/protocol/openid-connect/token",
+                    keycloakConfig.getKeycloakServerUrl(),
+                    keycloakConfig.getRealm()); // 使用auth-realm而不是target-realm
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+            MultiValueMap<String, String> map = new LinkedMultiValueMap<>();
+            map.add("grant_type", "password");
+            map.add("client_id", keycloakConfig.getAdminClientId());
+            map.add("username", keycloakConfig.getAdminUsername());
+            map.add("password", keycloakConfig.getAdminPassword());
+
+            HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(map, headers);
+
+            ResponseEntity<KeycloakTokenDTO> response = restTemplate.postForEntity(
+                    tokenUrl, request, KeycloakTokenDTO.class);
+
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                logger.info("Admin token acquisition successful using REST API");
+                return response.getBody().getAccessToken();
+            } else {
+                logger.warn("Admin token acquisition failed, status: {}", response.getStatusCode());
+                throw new RuntimeException("获取管理员令牌失败");
+            }
+        } catch (Exception e) {
+            logger.error("Admin token acquisition error using REST API", e);
+            throw new RuntimeException("获取管理员令牌失败：" + e.getMessage(), e);
+        }
+    }
+
+    /**
      * 刷新令牌 - 使用REST API实现
      * 
      * @param refreshToken 刷新令牌
