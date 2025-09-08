@@ -66,7 +66,7 @@ public class KeycloakConfig {
         
         return KeycloakBuilder.builder()
                 .serverUrl(keycloakServerUrl)
-                .realm(authRealm)  // 使用master realm进行管理认证
+                .realm(targetRealm)  // 使用目标realm进行管理认证
                 .clientId(adminClientId)
                 .username(adminUsername)
                 .password(adminPassword)

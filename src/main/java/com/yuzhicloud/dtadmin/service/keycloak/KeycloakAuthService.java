@@ -90,7 +90,7 @@ public class KeycloakAuthService {
         // 构建Keycloak客户端进行用户认证
         KeycloakBuilder builder = KeycloakBuilder.builder()
                 .serverUrl(keycloakConfig.getKeycloakServerUrl())
-                .realm(keycloakConfig.getRealm())  // 使用目标realm
+                .realm(keycloakConfig.getTargetRealm())  // 使用目标realm进行用户认证
                 .clientId(clientId)
                 .username(username)
                 .password(password)
@@ -170,7 +170,7 @@ public class KeycloakAuthService {
             // 使用管理员权限访问用户信息
             Keycloak adminClient = KeycloakBuilder.builder()
                     .serverUrl(keycloakConfig.getKeycloakServerUrl())
-                    .realm(keycloakConfig.getRealm())  // 使用认证realm
+                    .realm(keycloakConfig.getTargetRealm())  // 使用认证realm
                     .clientId(keycloakConfig.getAdminClientId())
                     .username(keycloakConfig.getAdminUsername())
                     .password(keycloakConfig.getAdminPassword())
