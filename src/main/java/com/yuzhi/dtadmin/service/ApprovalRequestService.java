@@ -39,6 +39,11 @@ public class ApprovalRequestService {
     public ApprovalRequestDTO save(ApprovalRequestDTO approvalRequestDTO) {
         LOG.debug("Request to save ApprovalRequest : {}", approvalRequestDTO);
         ApprovalRequest approvalRequest = approvalRequestMapper.toEntity(approvalRequestDTO);
+        // 手动设置items与request的关联关系
+        if (approvalRequest.getItems() != null) {
+            final ApprovalRequest finalApprovalRequest = approvalRequest;
+            approvalRequest.getItems().forEach(item -> item.setRequest(finalApprovalRequest));
+        }
         approvalRequest = approvalRequestRepository.save(approvalRequest);
         return approvalRequestMapper.toDto(approvalRequest);
     }
@@ -52,6 +57,11 @@ public class ApprovalRequestService {
     public ApprovalRequestDTO update(ApprovalRequestDTO approvalRequestDTO) {
         LOG.debug("Request to update ApprovalRequest : {}", approvalRequestDTO);
         ApprovalRequest approvalRequest = approvalRequestMapper.toEntity(approvalRequestDTO);
+        // 手动设置items与request的关联关系
+        if (approvalRequest.getItems() != null) {
+            final ApprovalRequest finalApprovalRequest = approvalRequest;
+            approvalRequest.getItems().forEach(item -> item.setRequest(finalApprovalRequest));
+        }
         approvalRequest = approvalRequestRepository.save(approvalRequest);
         return approvalRequestMapper.toDto(approvalRequest);
     }
@@ -85,6 +95,11 @@ public class ApprovalRequestService {
     @Transactional(readOnly = true)
     public Page<ApprovalRequestDTO> findAll(Pageable pageable) {
         LOG.debug("Request to get all ApprovalRequests");
+        // 如果没有指定排序，则默认按ID降序排列
+        if (pageable.getSort().isUnsorted()) {
+            org.springframework.data.domain.Sort sort = org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "id");
+            pageable = org.springframework.data.domain.PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
+        }
         return approvalRequestRepository.findAll(pageable).map(approvalRequestMapper::toDto);
     }
 

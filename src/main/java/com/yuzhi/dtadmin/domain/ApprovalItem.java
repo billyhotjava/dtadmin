@@ -19,8 +19,7 @@ public class ApprovalItem implements Serializable {
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "sequenceGenerator")
-    @SequenceGenerator(name = "sequenceGenerator")
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
     private Long id;
 
@@ -40,7 +39,11 @@ public class ApprovalItem implements Serializable {
     @Column(name = "payload", nullable = false)
     private String payload;
 
+    @Column(name = "request_id", insertable = false, updatable = false)
+    private Long requestId;
+
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "request_id")
     @JsonIgnoreProperties(value = { "items" }, allowSetters = true)
     private ApprovalRequest request;
 
@@ -111,6 +114,14 @@ public class ApprovalItem implements Serializable {
         this.payload = payload;
     }
 
+    public Long getRequestId() {
+        return requestId;
+    }
+
+    public void setRequestId(Long requestId) {
+        this.requestId = requestId;
+    }
+
     public ApprovalRequest getRequest() {
         return this.request;
     }
@@ -152,6 +163,7 @@ public class ApprovalItem implements Serializable {
             ", targetId='" + getTargetId() + "'" +
             ", seqNumber=" + getSeqNumber() +
             ", payload='" + getPayload() + "'" +
+            ", requestId=" + (getRequest() != null ? getRequest().getId() : null) +
             "}";
     }
 }

@@ -20,4 +20,4 @@ RUN apt update && apt install openssl && openssl s_client -connect sso.yuzhiclou
 # 复制jar文件到路径
 COPY ./target/*.jar /home
 # 启动认证服务
-ENTRYPOINT ["java","-jar","dtadmin-0.0.1-SNAPSHOT.jar", "--spring.profiles.active=prod"]
+ENTRYPOINT ["java","-jar","dtadmin-0.0.1-SNAPSHOT.jar", "--spring.profiles.active=dev"]

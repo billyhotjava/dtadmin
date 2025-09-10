@@ -5,6 +5,8 @@ import com.yuzhi.dtadmin.domain.enumeration.ApprovalType;
 import jakarta.validation.constraints.*;
 import java.io.Serializable;
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.Objects;
 
 /**
@@ -39,6 +41,8 @@ public class ApprovalRequestDTO implements Serializable {
 
     @Size(max = 1024)
     private String errorMessage;
+
+    private Set<ApprovalItemDTO> items = new HashSet<>();
 
     public Long getId() {
         return id;
@@ -120,6 +124,14 @@ public class ApprovalRequestDTO implements Serializable {
         this.errorMessage = errorMessage;
     }
 
+    public Set<ApprovalItemDTO> getItems() {
+        return items;
+    }
+
+    public void setItems(Set<ApprovalItemDTO> items) {
+        this.items = items;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -155,6 +167,7 @@ public class ApprovalRequestDTO implements Serializable {
             ", approver='" + getApprover() + "'" +
             ", decisionNote='" + getDecisionNote() + "'" +
             ", errorMessage='" + getErrorMessage() + "'" +
+            ", itemsCount=" + (getItems() != null ? getItems().size() : 0) +  // 只显示items的数量，避免循环引用
             "}";
     }
 }

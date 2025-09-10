@@ -11,11 +11,22 @@ import org.mapstruct.*;
  */
 @Mapper(componentModel = "spring")
 public interface ApprovalItemMapper extends EntityMapper<ApprovalItemDTO, ApprovalItem> {
-    @Mapping(target = "request", source = "request", qualifiedByName = "approvalRequestId")
-    ApprovalItemDTO toDto(ApprovalItem s);
+    @Mapping(target = "requestId", source = "request.id")
+    ApprovalItemDTO toDto(ApprovalItem entity);
 
+    @Mapping(target = "request", ignore = true)
+    ApprovalItem toEntity(ApprovalItemDTO dto);
+    
     @Named("approvalRequestId")
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "id", source = "id")
     ApprovalRequestDTO toDtoApprovalRequestId(ApprovalRequest approvalRequest);
+    
+    @Named("toDtoWithRequestId")
+    @Mapping(target = "requestId", source = "request.id")
+    ApprovalItemDTO toDtoWithRequestId(ApprovalItem entity);
+    
+    @Named("toEntityWithRequest")
+    @Mapping(target = "request", ignore = true)
+    ApprovalItem toEntityWithRequest(ApprovalItemDTO dto);
 }

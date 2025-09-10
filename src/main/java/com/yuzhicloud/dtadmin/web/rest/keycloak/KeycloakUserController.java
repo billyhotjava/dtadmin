@@ -1,9 +1,18 @@
 package com.yuzhicloud.dtadmin.web.rest.keycloak;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yuzhicloud.dtadmin.dto.keycloak.KeycloakUserDTO;
 import com.yuzhicloud.dtadmin.dto.keycloak.KeycloakRoleDTO;
 import com.yuzhicloud.dtadmin.service.keycloak.KeycloakUserService;
 import com.yuzhicloud.dtadmin.service.keycloak.KeycloakRoleService;
+import com.yuzhi.dtadmin.domain.ApprovalRequest;
+import com.yuzhi.dtadmin.domain.ApprovalItem;
+import com.yuzhi.dtadmin.domain.enumeration.ApprovalType;
+import com.yuzhi.dtadmin.domain.enumeration.ApprovalStatus;
+import com.yuzhi.dtadmin.service.ApprovalRequestService;
+import com.yuzhi.dtadmin.service.dto.ApprovalRequestDTO;
+import com.yuzhi.dtadmin.service.dto.ApprovalItemDTO;
+import com.yuzhi.dtadmin.service.mapper.ApprovalRequestMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -11,8 +20,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 /**
  * Keycloak用户管理REST控制器
@@ -27,10 +40,17 @@ public class KeycloakUserController {
     
     private final KeycloakUserService userService;
     private final KeycloakRoleService roleService;
+    private final ApprovalRequestService approvalRequestService;
+    private final ApprovalRequestMapper approvalRequestMapper;
+    private final ObjectMapper objectMapper;
 
-    public KeycloakUserController(KeycloakUserService userService, KeycloakRoleService roleService) {
+    public KeycloakUserController(KeycloakUserService userService, KeycloakRoleService roleService, 
+                                  ApprovalRequestService approvalRequestService, ApprovalRequestMapper approvalRequestMapper) {
         this.userService = userService;
         this.roleService = roleService;
+        this.approvalRequestService = approvalRequestService;
+        this.approvalRequestMapper = approvalRequestMapper;
+        this.objectMapper = new ObjectMapper();
     }
 
     /**
@@ -79,50 +99,141 @@ public class KeycloakUserController {
     }
 
     /**
-     * 创建新用户
+     * 创建新用户 - 改为创建审批请求
      */
     @PostMapping
     public ResponseEntity<Map<String, String>> createUser(@RequestBody KeycloakUserDTO user) {
         try {
-            String userId = userService.createUser(user);
+            // 创建审批请求而不是直接创建用户
+            ApprovalRequest approvalRequest = new ApprovalRequest();
+            approvalRequest.setRequester("current_user"); // TODO: 获取当前用户
+            approvalRequest.setApprover(null); // 审批人将在审批时设置
+            approvalRequest.setDecisionNote(null); // 审批意见将在审批时设置
+            approvalRequest.setErrorMessage(null); // 错误信息将在失败时设置
+            approvalRequest.setType(ApprovalType.CREATE_USER);
+            approvalRequest.setReason("创建新用户: " + user.getUsername());
+            approvalRequest.setCreatedAt(Instant.now());
+            approvalRequest.setStatus(ApprovalStatus.PENDING);
+            
+            // 创建审批项
+            ApprovalItem approvalItem = new ApprovalItem();
+            approvalItem.setTargetKind("USER");
+            approvalItem.setTargetId(UUID.randomUUID().toString()); // 临时ID
+            approvalItem.setSeqNumber(1);
+            approvalItem.setPayload(convertUserToString(user));
+            approvalItem.setRequest(approvalRequest);
+            
+            Set<ApprovalItem> items = new HashSet<>();
+            items.add(approvalItem);
+            approvalRequest.setItems(items);
+            
+            // 保存审批请求
+            ApprovalRequestDTO savedRequest = approvalRequestService.save(approvalRequestMapper.toDto(approvalRequest));
+            
             return ResponseEntity.status(HttpStatus.CREATED)
-                    .body(Map.of("userId", userId, "message", "User created successfully"));
+                    .body(Map.of("requestId", savedRequest.getId().toString(), "message", "User creation request submitted for approval"));
         } catch (Exception e) {
-            logger.error("Error creating user: {}", user.getUsername(), e);
+            logger.error("Error creating user request: {}", user.getUsername(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Failed to create user: " + e.getMessage()));
+                    .body(Map.of("error", "Failed to submit user creation request: " + e.getMessage()));
         }
     }
 
     /**
-     * 更新用户信息
+     * 更新用户信息 - 改为创建审批请求
      */
     @PutMapping("/{userId}")
     public ResponseEntity<Map<String, String>> updateUser(
             @PathVariable String userId, 
             @RequestBody KeycloakUserDTO user) {
+                 logger.info("get updating user request: {}");
         try {
-            userService.updateUser(userId, user);
-            return ResponseEntity.ok(Map.of("message", "User updated successfully"));
+            // 创建审批请求而不是直接更新用户
+            ApprovalRequest approvalRequest = new ApprovalRequest();
+            approvalRequest.setRequester("current_user"); // TODO: 获取当前用户
+            approvalRequest.setApprover(null); // 审批人将在审批时设置
+            approvalRequest.setDecisionNote(null); // 审批意见将在审批时设置
+            approvalRequest.setErrorMessage(null); // 错误信息将在失败时设置
+            approvalRequest.setType(ApprovalType.UPDATE_USER);
+            approvalRequest.setReason("更新用户信息: " + userId);
+            approvalRequest.setCreatedAt(Instant.now());
+            approvalRequest.setStatus(ApprovalStatus.PENDING);
+            
+            // 创建审批项
+            ApprovalItem approvalItem = new ApprovalItem();
+            approvalItem.setTargetKind("USER");
+            approvalItem.setTargetId(userId);
+            approvalItem.setSeqNumber(1);
+            approvalItem.setPayload(convertUserToString(user));
+            approvalItem.setRequest(approvalRequest);
+            
+            Set<ApprovalItem> items = new HashSet<>();
+            items.add(approvalItem);
+            approvalRequest.setItems(items);
+            
+            // 保存审批请求
+            ApprovalRequestDTO savedRequest = approvalRequestService.save(approvalRequestMapper.toDto(approvalRequest));
+            
+            return ResponseEntity.ok(Map.of("requestId", savedRequest.getId().toString(), "message", "User update request submitted for approval"));
         } catch (Exception e) {
-            logger.error("Error updating user: {}", userId, e);
+            logger.error("Error updating user request: {}", userId, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Failed to update user: " + e.getMessage()));
+                    .body(Map.of("error", "Failed to submit user update request: " + e.getMessage()));
         }
     }
 
     /**
-     * 删除用户
+     * 删除用户 - 改为创建审批请求
      */
     @DeleteMapping("/{userId}")
     public ResponseEntity<Map<String, String>> deleteUser(@PathVariable String userId) {
         try {
-            userService.deleteUser(userId);
-            return ResponseEntity.ok(Map.of("message", "User deleted successfully"));
+            // 获取用户信息用于保存到审批请求中
+            KeycloakUserDTO user = userService.getUserById(userId);
+            
+            // 创建审批请求而不是直接删除用户
+            ApprovalRequest approvalRequest = new ApprovalRequest();
+            approvalRequest.setRequester("current_user"); // TODO: 获取当前用户
+            approvalRequest.setApprover(null); // 审批人将在审批时设置
+            approvalRequest.setDecisionNote(null); // 审批意见将在审批时设置
+            approvalRequest.setErrorMessage(null); // 错误信息将在失败时设置
+            approvalRequest.setType(ApprovalType.DELETE_USER);
+            approvalRequest.setReason("删除用户: " + userId + " (" + user.getUsername() + ")");
+            approvalRequest.setCreatedAt(Instant.now());
+            approvalRequest.setStatus(ApprovalStatus.PENDING);
+            
+            // 创建审批项
+            ApprovalItem approvalItem = new ApprovalItem();
+            approvalItem.setTargetKind("USER");
+            approvalItem.setTargetId(userId);
+            approvalItem.setSeqNumber(1);
+            approvalItem.setPayload(convertUserToString(user)); // 保存用户信息用于审批查看
+            approvalItem.setRequest(approvalRequest);
+            
+            Set<ApprovalItem> items = new HashSet<>();
+            items.add(approvalItem);
+            approvalRequest.setItems(items);
+            
+            // 保存审批请求
+            ApprovalRequestDTO savedRequest = approvalRequestService.save(approvalRequestMapper.toDto(approvalRequest));
+            
+            return ResponseEntity.ok(Map.of("requestId", savedRequest.getId().toString(), "message", "User deletion request submitted for approval"));
         } catch (Exception e) {
-            logger.error("Error deleting user: {}", userId, e);
+            logger.error("Error deleting user request: {}", userId, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Failed to delete user: " + e.getMessage()));
+                    .body(Map.of("error", "Failed to submit user deletion request: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * 将用户对象转换为字符串
+     */
+    private String convertUserToString(KeycloakUserDTO user) {
+        try {
+            return objectMapper.writeValueAsString(user);
+        } catch (Exception e) {
+            logger.error("Error converting user to string", e);
+            return "";
         }
     }
 
@@ -180,36 +291,90 @@ public class KeycloakUserController {
     }
 
     /**
-     * 为用户分配角色
+     * 为用户分配角色 - 改为创建审批请求
      */
     @PostMapping("/{userId}/roles")
     public ResponseEntity<Map<String, String>> assignRolesToUser(
             @PathVariable String userId,
             @RequestBody List<KeycloakRoleDTO> roles) {
         try {
-            roleService.assignRealmRolesToUser(userId, roles);
-            return ResponseEntity.ok(Map.of("message", "Roles assigned successfully"));
+            // 创建审批请求而不是直接分配角色
+            ApprovalRequest approvalRequest = new ApprovalRequest();
+            approvalRequest.setRequester("current_user"); // TODO: 获取当前用户
+            approvalRequest.setApprover(null); // 审批人将在审批时设置
+            approvalRequest.setDecisionNote(null); // 审批意见将在审批时设置
+            approvalRequest.setErrorMessage(null); // 错误信息将在失败时设置
+            approvalRequest.setType(ApprovalType.GRANT_ROLE);
+            approvalRequest.setReason("为用户分配角色: " + userId);
+            approvalRequest.setCreatedAt(Instant.now());
+            approvalRequest.setStatus(ApprovalStatus.PENDING);
+            
+            // 创建审批项
+            Set<ApprovalItem> items = new HashSet<>();
+            for (int i = 0; i < roles.size(); i++) {
+                ApprovalItem approvalItem = new ApprovalItem();
+                approvalItem.setTargetKind("ROLE");
+                approvalItem.setTargetId(roles.get(i).getName());
+                approvalItem.setSeqNumber(i + 1);
+                approvalItem.setPayload(userId); // 用户ID作为payload
+                approvalItem.setRequest(approvalRequest);
+                items.add(approvalItem);
+            }
+            
+            approvalRequest.setItems(items);
+            
+            // 保存审批请求
+            ApprovalRequestDTO savedRequest = approvalRequestService.save(approvalRequestMapper.toDto(approvalRequest));
+            
+            return ResponseEntity.ok(Map.of("requestId", savedRequest.getId().toString(), "message", "Role assignment request submitted for approval"));
         } catch (Exception e) {
             logger.error("Error assigning roles to user: {}", userId, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Failed to assign roles: " + e.getMessage()));
+                    .body(Map.of("error", "Failed to submit role assignment request: " + e.getMessage()));
         }
     }
 
     /**
-     * 移除用户的角色
+     * 移除用户的角色 - 改为创建审批请求
      */
     @DeleteMapping("/{userId}/roles")
     public ResponseEntity<Map<String, String>> removeRolesFromUser(
             @PathVariable String userId,
             @RequestBody List<KeycloakRoleDTO> roles) {
         try {
-            roleService.removeRealmRolesFromUser(userId, roles);
-            return ResponseEntity.ok(Map.of("message", "Roles removed successfully"));
+            // 创建审批请求而不是直接移除角色
+            ApprovalRequest approvalRequest = new ApprovalRequest();
+            approvalRequest.setRequester("current_user"); // TODO: 获取当前用户
+            approvalRequest.setApprover(null); // 审批人将在审批时设置
+            approvalRequest.setDecisionNote(null); // 审批意见将在审批时设置
+            approvalRequest.setErrorMessage(null); // 错误信息将在失败时设置
+            approvalRequest.setType(ApprovalType.REVOKE_ROLE);
+            approvalRequest.setReason("为用户移除角色: " + userId);
+            approvalRequest.setCreatedAt(Instant.now());
+            approvalRequest.setStatus(ApprovalStatus.PENDING);
+            
+            // 创建审批项
+            Set<ApprovalItem> items = new HashSet<>();
+            for (int i = 0; i < roles.size(); i++) {
+                ApprovalItem approvalItem = new ApprovalItem();
+                approvalItem.setTargetKind("ROLE");
+                approvalItem.setTargetId(roles.get(i).getName());
+                approvalItem.setSeqNumber(i + 1);
+                approvalItem.setPayload(userId); // 用户ID作为payload
+                approvalItem.setRequest(approvalRequest);
+                items.add(approvalItem);
+            }
+            
+            approvalRequest.setItems(items);
+            
+            // 保存审批请求
+            ApprovalRequestDTO savedRequest = approvalRequestService.save(approvalRequestMapper.toDto(approvalRequest));
+            
+            return ResponseEntity.ok(Map.of("requestId", savedRequest.getId().toString(), "message", "Role removal request submitted for approval"));
         } catch (Exception e) {
             logger.error("Error removing roles from user: {}", userId, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Failed to remove roles: " + e.getMessage()));
+                    .body(Map.of("error", "Failed to submit role removal request: " + e.getMessage()));
         }
     }
 }

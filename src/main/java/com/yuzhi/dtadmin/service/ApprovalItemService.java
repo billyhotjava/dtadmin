@@ -39,7 +39,7 @@ public class ApprovalItemService {
     public ApprovalItemDTO save(ApprovalItemDTO approvalItemDTO) {
         LOG.debug("Request to save ApprovalItem : {}", approvalItemDTO);
         ApprovalItem approvalItem = approvalItemMapper.toEntity(approvalItemDTO);
-        approvalItem = approvalItemRepository.save(approvalItem);
+        approvalItem = approvalItemRepository.saveAndFlush(approvalItem);
         return approvalItemMapper.toDto(approvalItem);
     }
 

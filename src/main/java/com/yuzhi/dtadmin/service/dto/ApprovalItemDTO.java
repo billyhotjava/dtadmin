@@ -25,7 +25,9 @@ public class ApprovalItemDTO implements Serializable {
     @Lob
     private String payload;
 
-    private ApprovalRequestDTO request;
+    private Long requestId;
+
+    // jhipster-needle-entity-add-field - JHipster will add fields here
 
     public Long getId() {
         return id;
@@ -67,13 +69,15 @@ public class ApprovalItemDTO implements Serializable {
         this.payload = payload;
     }
 
-    public ApprovalRequestDTO getRequest() {
-        return request;
+    public Long getRequestId() {
+        return requestId;
     }
 
-    public void setRequest(ApprovalRequestDTO request) {
-        this.request = request;
+    public void setRequestId(Long requestId) {
+        this.requestId = requestId;
     }
+
+    // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
 
     @Override
     public boolean equals(Object o) {
@@ -84,18 +88,18 @@ public class ApprovalItemDTO implements Serializable {
             return false;
         }
 
-        ApprovalItemDTO approvalItemDTO = (ApprovalItemDTO) o;
+        ApprovalItemDTO that = (ApprovalItemDTO) o;
         if (this.id == null) {
             return false;
         }
-        return Objects.equals(this.id, approvalItemDTO.id);
+        return Objects.equals(this.id, that.id);
     }
 
     @Override
     public int hashCode() {
         return Objects.hash(this.id);
     }
-
+    
     // prettier-ignore
     @Override
     public String toString() {
@@ -105,7 +109,7 @@ public class ApprovalItemDTO implements Serializable {
             ", targetId='" + getTargetId() + "'" +
             ", seqNumber=" + getSeqNumber() +
             ", payload='" + getPayload() + "'" +
-            ", request=" + getRequest() +
+            ", requestId=" + (getRequestId() != null ? getRequestId() : "null") +
             "}";
     }
 }

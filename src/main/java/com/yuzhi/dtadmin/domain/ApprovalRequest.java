@@ -24,8 +24,7 @@ public class ApprovalRequest implements Serializable {
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "sequenceGenerator")
-    @SequenceGenerator(name = "sequenceGenerator")
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
     private Long id;
 
@@ -65,7 +64,7 @@ public class ApprovalRequest implements Serializable {
     @Column(name = "error_message", length = 1024)
     private String errorMessage;
 
-    @OneToMany(fetch = FetchType.LAZY, mappedBy = "request")
+    @OneToMany(fetch = FetchType.LAZY, mappedBy = "request", cascade = CascadeType.ALL, orphanRemoval = true)
     @Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
     @JsonIgnoreProperties(value = { "request" }, allowSetters = true)
     private Set<ApprovalItem> items = new HashSet<>();
@@ -266,6 +265,7 @@ public class ApprovalRequest implements Serializable {
             ", approver='" + getApprover() + "'" +
             ", decisionNote='" + getDecisionNote() + "'" +
             ", errorMessage='" + getErrorMessage() + "'" +
+            ", itemsCount=" + (getItems() != null ? getItems().size() : 0) +  // 只显示items的数量，避免循环引用
             "}";
     }
 }
