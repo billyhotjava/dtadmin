@@ -11,6 +11,7 @@ import com.yuzhi.dtadmin.domain.ApprovalItem;
 import com.yuzhi.dtadmin.domain.enumeration.ApprovalType;
 import com.yuzhi.dtadmin.domain.enumeration.ApprovalStatus;
 import com.yuzhi.dtadmin.service.ApprovalRequestService;
+import com.yuzhi.dtadmin.service.AuditLogUtil;
 import com.yuzhi.dtadmin.service.dto.ApprovalRequestDTO;
 import com.yuzhi.dtadmin.service.dto.ApprovalItemDTO;
 import com.yuzhi.dtadmin.service.mapper.ApprovalRequestMapper;
@@ -44,14 +45,17 @@ public class KeycloakUserController {
     private final ApprovalRequestService approvalRequestService;
     private final ApprovalRequestMapper approvalRequestMapper;
     private final ObjectMapper objectMapper;
+    private final AuditLogUtil auditLogUtil;
 
     public KeycloakUserController(KeycloakUserService userService, KeycloakRoleService roleService, 
-                                  ApprovalRequestService approvalRequestService, ApprovalRequestMapper approvalRequestMapper) {
+                                  ApprovalRequestService approvalRequestService, ApprovalRequestMapper approvalRequestMapper,
+                                  AuditLogUtil auditLogUtil) {
         this.userService = userService;
         this.roleService = roleService;
         this.approvalRequestService = approvalRequestService;
         this.approvalRequestMapper = approvalRequestMapper;
         this.objectMapper = new ObjectMapper();
+        this.auditLogUtil = auditLogUtil;
     }
 
     /**
@@ -131,6 +135,9 @@ public class KeycloakUserController {
             // 保存审批请求
             ApprovalRequestDTO savedRequest = approvalRequestService.save(approvalRequestMapper.toDto(approvalRequest));
             
+            // 记录审计日志
+            auditLogUtil.logApprovalRequestCreated("current_user", savedRequest.getId(), "CREATE_USER", "创建新用户: " + user.getUsername());
+            
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(Map.of("requestId", savedRequest.getId().toString(), "message", "User creation request submitted for approval"));
         } catch (Exception e) {
@@ -175,6 +182,9 @@ public class KeycloakUserController {
             // 保存审批请求
             ApprovalRequestDTO savedRequest = approvalRequestService.save(approvalRequestMapper.toDto(approvalRequest));
             
+            // 记录审计日志
+            auditLogUtil.logApprovalRequestCreated("current_user", savedRequest.getId(), "UPDATE_USER", "更新用户信息: " + userId);
+            
             return ResponseEntity.ok(Map.of("requestId", savedRequest.getId().toString(), "message", "User update request submitted for approval"));
         } catch (Exception e) {
             logger.error("Error updating user request: {}", userId, e);
@@ -217,6 +227,9 @@ public class KeycloakUserController {
             
             // 保存审批请求
             ApprovalRequestDTO savedRequest = approvalRequestService.save(approvalRequestMapper.toDto(approvalRequest));
+            
+            // 记录审计日志
+            auditLogUtil.logApprovalRequestCreated("current_user", savedRequest.getId(), "DELETE_USER", "删除用户: " + userId + " (" + user.getUsername() + ")");
             
             return ResponseEntity.ok(Map.of("requestId", savedRequest.getId().toString(), "message", "User deletion request submitted for approval"));
         } catch (Exception e) {
@@ -331,6 +344,9 @@ public class KeycloakUserController {
             // 保存审批请求
             ApprovalRequestDTO savedRequest = approvalRequestService.save(approvalRequestMapper.toDto(approvalRequest));
             
+            // 记录审计日志
+            auditLogUtil.logApprovalRequestCreated("current_user", savedRequest.getId(), "GRANT_ROLE", "为用户分配角色: " + userId);
+            
             return ResponseEntity.ok(Map.of("requestId", savedRequest.getId().toString(), "message", "Role assignment request submitted for approval"));
         } catch (Exception e) {
             logger.error("Error assigning roles to user: {}", userId, e);
@@ -378,6 +394,9 @@ public class KeycloakUserController {
             
             // 保存审批请求
             ApprovalRequestDTO savedRequest = approvalRequestService.save(approvalRequestMapper.toDto(approvalRequest));
+            
+            // 记录审计日志
+            auditLogUtil.logApprovalRequestCreated("current_user", savedRequest.getId(), "REVOKE_ROLE", "为用户移除角色: " + userId);
             
             return ResponseEntity.ok(Map.of("requestId", savedRequest.getId().toString(), "message", "Role removal request submitted for approval"));
         } catch (Exception e) {

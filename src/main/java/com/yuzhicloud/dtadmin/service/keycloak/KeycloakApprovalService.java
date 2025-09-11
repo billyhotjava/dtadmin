@@ -3,6 +3,7 @@ package com.yuzhicloud.dtadmin.service.keycloak;
 import com.yuzhi.dtadmin.domain.ApprovalRequest;
 import com.yuzhi.dtadmin.domain.enumeration.ApprovalStatus;
 import com.yuzhi.dtadmin.repository.ApprovalRequestRepository;
+import com.yuzhi.dtadmin.service.AuditLogUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -21,11 +22,14 @@ public class KeycloakApprovalService {
     
     private final ApprovalRequestRepository approvalRequestRepository;
     private final KeycloakUserSyncService userSyncService;
+    private final AuditLogUtil auditLogUtil;
 
     public KeycloakApprovalService(ApprovalRequestRepository approvalRequestRepository,
-                                  KeycloakUserSyncService userSyncService) {
+                                  KeycloakUserSyncService userSyncService,
+                                  AuditLogUtil auditLogUtil) {
         this.approvalRequestRepository = approvalRequestRepository;
         this.userSyncService = userSyncService;
+        this.auditLogUtil = auditLogUtil;
     }
 
     /**
@@ -44,6 +48,9 @@ public class KeycloakApprovalService {
             request.setDecidedAt(Instant.now());
             
             approvalRequestRepository.save(request);
+            
+            // 记录审计日志
+            auditLogUtil.logApprovalApproved(approver, requestId, note);
             
             // 审批通过后立即同步到Keycloak
             userSyncService.processApprovedRequest(requestId);
@@ -71,6 +78,9 @@ public class KeycloakApprovalService {
             request.setDecidedAt(Instant.now());
             
             approvalRequestRepository.save(request);
+            
+            // 记录审计日志
+            auditLogUtil.logApprovalRejected(approver, requestId, note);
             
             logger.info("Rejected request: {}", requestId);
         } catch (Exception e) {
