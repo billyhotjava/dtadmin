@@ -1,9 +1,11 @@
 package com.yuzhicloud.dtadmin.web.rest.keycloak;
 
 import com.yuzhicloud.dtadmin.dto.keycloak.KeycloakTokenDTO;
+import com.yuzhicloud.dtadmin.dto.keycloak.KeycloakRoleDTO;
 import com.yuzhicloud.dtadmin.service.keycloak.KeycloakAuthService;
 import com.yuzhicloud.dtadmin.service.keycloak.KeycloakTokenService;
 import com.yuzhicloud.dtadmin.service.keycloak.KeycloakUserService;
+import com.yuzhicloud.dtadmin.service.keycloak.KeycloakRoleService;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,6 +13,7 @@ import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -26,13 +29,16 @@ public class KeycloakAuthController {
     private final KeycloakAuthService authService;
     private final KeycloakTokenService tokenService;
     private final KeycloakUserService userService;
+    private final KeycloakRoleService roleService;
 
     public KeycloakAuthController(KeycloakAuthService authService, 
                                   KeycloakTokenService tokenService,
-                                  KeycloakUserService userService) {
+                                  KeycloakUserService userService,
+                                  KeycloakRoleService roleService) {
         this.authService = authService;
         this.tokenService = tokenService;
         this.userService = userService;
+        this.roleService = roleService;
     }
 
     /**
@@ -137,14 +143,14 @@ public class KeycloakAuthController {
         private String[] roles;
         private String[] permissions;
 
-        public UserInfo(String id, String username, String email, String firstName, String lastName, boolean enabled) {
+        public UserInfo(String id, String username, String email, String firstName, String lastName, boolean enabled, String[] roles) {
             this.id = id;
             this.username = username;
             this.email = email;
             this.firstName = firstName;
             this.lastName = lastName;
             this.enabled = enabled;
-            this.roles = new String[]{"user"}; // 默认角色
+            this.roles = roles != null ? roles : new String[]{"user"}; // 如果没有角色，使用默认角色
             this.permissions = new String[]{"read"}; // 默认权限
         }
 
@@ -193,13 +199,23 @@ public class KeycloakAuthController {
             UserInfo userInfo;
             
             if (userRep != null) {
+                // 获取用户角色
+                String[] userRoles = new String[0];
+                try {
+                    List<KeycloakRoleDTO> roles = roleService.getUserRealmRoles(userRep.getId());
+                    userRoles = roles.stream().map(KeycloakRoleDTO::getName).toArray(String[]::new);
+                } catch (Exception e) {
+                    logger.warn("Failed to retrieve roles for user: {}", loginRequest.getUsername(), e);
+                }
+                
                 userInfo = new UserInfo(
                     userRep.getId(),
                     userRep.getUsername(),
                     userRep.getEmail(),
                     userRep.getFirstName(),
                     userRep.getLastName(),
-                    userRep.isEnabled()
+                    userRep.isEnabled(),
+                    userRoles
                 );
             } else {
                 // 如果获取不到用户信息，使用默认值
@@ -209,7 +225,8 @@ public class KeycloakAuthController {
                     loginRequest.getUsername() + "@example.com",
                     "",
                     "",
-                    true
+                    true,
+                    new String[]{"user"} // 默认角色
                 );
             }
 

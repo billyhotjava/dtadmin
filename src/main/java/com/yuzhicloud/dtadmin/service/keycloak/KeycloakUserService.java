@@ -34,10 +34,12 @@ public class KeycloakUserService {
     
     private final Keycloak keycloakAdminClient;
     private final KeycloakConfig keycloakConfig;
+    private final KeycloakRoleService roleService;
 
-    public KeycloakUserService(Keycloak keycloakAdminClient, KeycloakConfig keycloakConfig) {
+    public KeycloakUserService(Keycloak keycloakAdminClient, KeycloakConfig keycloakConfig, KeycloakRoleService roleService) {
         this.keycloakAdminClient = keycloakAdminClient;
         this.keycloakConfig = keycloakConfig;
+        this.roleService = roleService;
     }
 
     /**

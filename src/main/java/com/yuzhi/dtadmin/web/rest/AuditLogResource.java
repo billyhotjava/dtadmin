@@ -132,9 +132,9 @@ public class AuditLogResource {
         Optional<AuditLogDTO> result = auditLogService.partialUpdate(auditLogDTO);
 
         return ResponseUtil.wrapOrNotFound(
-            result,
+            result.map(dto -> ApiResponseUtil.createSuccessResponse(dto, "审计日志部分更新成功")),
             HeaderUtil.createEntityUpdateAlert(applicationName, true, ENTITY_NAME, auditLogDTO.getId().toString())
-        ).map(dto -> ResponseEntity.ok().body(ApiResponseUtil.createSuccessResponse(dto, "审计日志部分更新成功")));
+        );
     }
 
     /**
@@ -161,9 +161,9 @@ public class AuditLogResource {
     public ResponseEntity<Map<String, Object>> getAuditLog(@PathVariable("id") Long id) {
         LOG.debug("REST request to get AuditLog : {}", id);
         Optional<AuditLogDTO> auditLogDTO = auditLogService.findOne(id);
-        return ResponseUtil.wrapOrNotFound(auditLogDTO)
-            .map(dto -> ResponseEntity.ok().body(ApiResponseUtil.createSuccessResponse(dto, "审计日志获取成功")))
-            .orElse(ResponseEntity.ok().body(ApiResponseUtil.createErrorResponse(404, "审计日志未找到")));
+        return ResponseUtil.wrapOrNotFound(
+            auditLogDTO.map(dto -> ApiResponseUtil.createSuccessResponse(dto, "审计日志获取成功"))
+        );
     }
 
     /**
@@ -178,6 +178,6 @@ public class AuditLogResource {
         auditLogService.delete(id);
         return ResponseEntity.noContent()
             .headers(HeaderUtil.createEntityDeletionAlert(applicationName, true, ENTITY_NAME, id.toString()))
-            .body(ApiResponseUtil.createSuccessResponse(null, "审计日志删除成功"));
+            .build();
     }
 }
