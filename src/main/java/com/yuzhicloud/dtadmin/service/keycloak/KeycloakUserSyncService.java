@@ -1,6 +1,7 @@
 package com.yuzhicloud.dtadmin.service.keycloak;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yuzhicloud.dtadmin.dto.keycloak.KeycloakRoleAssignmentDTO;
 import com.yuzhicloud.dtadmin.dto.keycloak.KeycloakUserDTO;
 import com.yuzhi.dtadmin.domain.ApprovalRequest;
 import com.yuzhi.dtadmin.domain.ApprovalItem;
@@ -156,15 +157,51 @@ public class KeycloakUserSyncService {
      * 处理分配角色请求
      */
     private void handleGrantRole(ApprovalRequest request) {
-        // TODO: 实现角色分配逻辑
-        logger.info("Grant role request processed: {}", request.getId());
+        Set<ApprovalItem> items = request.getItems();
+        if (items == null || items.isEmpty()) {
+            throw new RuntimeException("No approval items found for GRANT_ROLE request");
+        }
+        
+        // 处理所有items
+        for (ApprovalItem item : items) {
+            try {
+                // 解析角色信息
+                // 这里假设payload包含角色信息，targetId是用户ID
+                KeycloakRoleAssignmentDTO roleAssignment = objectMapper.readValue(item.getPayload(), KeycloakRoleAssignmentDTO.class);
+                
+                // 为用户分配角色
+                keycloakUserService.assignRealmRolesToUser(item.getTargetId(), roleAssignment.getRoles());
+                
+                logger.info("Granted roles to user: {}", item.getTargetId());
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to grant roles to user in Keycloak", e);
+            }
+        }
     }
 
     /**
      * 处理移除角色请求
      */
     private void handleRevokeRole(ApprovalRequest request) {
-        // TODO: 实现角色移除逻辑
-        logger.info("Revoke role request processed: {}", request.getId());
+        Set<ApprovalItem> items = request.getItems();
+        if (items == null || items.isEmpty()) {
+            throw new RuntimeException("No approval items found for REVOKE_ROLE request");
+        }
+        
+        // 处理所有items
+        for (ApprovalItem item : items) {
+            try {
+                // 解析角色信息
+                // 这里假设payload包含角色信息，targetId是用户ID
+                KeycloakRoleAssignmentDTO roleAssignment = objectMapper.readValue(item.getPayload(), KeycloakRoleAssignmentDTO.class);
+                
+                // 从用户移除角色
+                keycloakUserService.removeRealmRolesFromUser(item.getTargetId(), roleAssignment.getRoles());
+                
+                logger.info("Revoked roles from user: {}", item.getTargetId());
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to revoke roles from user in Keycloak", e);
+            }
+        }
     }
 }

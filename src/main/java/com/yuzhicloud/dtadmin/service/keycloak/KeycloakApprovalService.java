@@ -45,7 +45,10 @@ public class KeycloakApprovalService {
             
             approvalRequestRepository.save(request);
             
-            logger.info("Approved request: {}", requestId);
+            // 审批通过后立即同步到Keycloak
+            userSyncService.processApprovedRequest(requestId);
+            
+            logger.info("Approved and processed request: {}", requestId);
         } catch (Exception e) {
             logger.error("Error approving request: {}", requestId, e);
             throw new RuntimeException("Failed to approve request", e);

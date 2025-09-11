@@ -1,6 +1,8 @@
 package com.yuzhicloud.dtadmin.service.keycloak;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yuzhicloud.dtadmin.config.KeycloakConfig;
+import com.yuzhicloud.dtadmin.dto.keycloak.KeycloakRoleDTO;
 import com.yuzhicloud.dtadmin.dto.keycloak.KeycloakUserDTO;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.resource.RealmResource;
@@ -8,6 +10,7 @@ import org.keycloak.admin.client.resource.UserResource;
 import org.keycloak.admin.client.resource.UsersResource;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.keycloak.representations.idm.CredentialRepresentation;
+import org.keycloak.representations.idm.RoleRepresentation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -19,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 /**
  * Keycloak用户管理服务 - 使用官方Admin Client
  * 提供用户的CRUD操作
@@ -207,14 +211,41 @@ public class KeycloakUserService {
      * 更新用户信息 - 使用Admin Client
      */
     public void updateUser(String userId, KeycloakUserDTO userDTO) {
+          final ObjectMapper MAPPER = new ObjectMapper();
+
         try {
             RealmResource realmResource = getTargetRealmResource();
             UserResource userResource = realmResource.users().get(userId);
+            logger.info("updated user: {}", MAPPER.writeValueAsString(userDTO));
+            // 先获取现有的用户信息
+            UserRepresentation existingUser = userResource.toRepresentation();
             
-            UserRepresentation user = convertFromDTO(userDTO);
-            user.setId(userId); // 确保ID正确
+            // 清理可能导致问题的字段
+         //   existingUser.setUserProfileMetadata(null);
+         //   existingUser.setAccess(null);
+         //   existingUser.setNotBefore(null);
+         //   existingUser.setRequiredActions(null);
             
-            userResource.update(user);
+            // 更新用户信息
+            existingUser.setUsername(userDTO.getUsername());
+            existingUser.setEmail(userDTO.getEmail());
+            existingUser.setFirstName(userDTO.getFirstName());
+            existingUser.setLastName(userDTO.getLastName());
+            existingUser.setEnabled(userDTO.getEnabled());
+            existingUser.setEmailVerified(userDTO.getEmailVerified());
+            
+            // 如果有属性信息，也进行更新
+            if (userDTO.getAttributes() != null) {
+                existingUser.setAttributes(userDTO.getAttributes());
+            }
+            
+            // 清理其他可能引起问题的字段
+         //   existingUser.setFederatedIdentities(null);
+        //    existingUser.setRealmRoles(null);
+        //    existingUser.setClientRoles(null);
+        //    existingUser.setGroups(null);
+            logger.info("updated existingUser: {}", MAPPER.writeValueAsString(existingUser));
+            userResource.update(existingUser);
             
             logger.info("Successfully updated user: {}", userId);
             
@@ -288,6 +319,64 @@ public class KeycloakUserService {
             logger.error("Error setting user enabled status: {}", userId, e);
             throw new RuntimeException("Error updating user status in Keycloak", e);
         }
+    }
+
+    /**
+     * 为用户分配Realm角色 - 使用Admin Client
+     */
+    public void assignRealmRolesToUser(String userId, List<KeycloakRoleDTO> roleDTOs) {
+        try {
+            RealmResource realmResource = getTargetRealmResource();
+            UserResource userResource = realmResource.users().get(userId);
+            
+            List<org.keycloak.representations.idm.RoleRepresentation> roles = roleDTOs.stream()
+                    .map(this::convertRoleFromDTO)
+                    .collect(java.util.stream.Collectors.toList());
+                    
+            userResource.roles().realmLevel().add(roles);
+            
+            logger.info("Successfully assigned {} realm roles to user: {}", roles.size(), userId);
+            
+        } catch (Exception e) {
+            logger.error("Error assigning realm roles to user: {}", userId, e);
+            throw new RuntimeException("Error assigning realm roles to user: " + userId, e);
+        }
+    }
+
+    /**
+     * 移除用户的Realm角色 - 使用Admin Client
+     */
+    public void removeRealmRolesFromUser(String userId, List<KeycloakRoleDTO> roleDTOs) {
+        try {
+            RealmResource realmResource = getTargetRealmResource();
+            UserResource userResource = realmResource.users().get(userId);
+            
+            List<org.keycloak.representations.idm.RoleRepresentation> roles = roleDTOs.stream()
+                    .map(this::convertRoleFromDTO)
+                    .collect(java.util.stream.Collectors.toList());
+                    
+            userResource.roles().realmLevel().remove(roles);
+            
+            logger.info("Successfully removed {} realm roles from user: {}", roles.size(), userId);
+            
+        } catch (Exception e) {
+            logger.error("Error removing realm roles from user: {}", userId, e);
+            throw new RuntimeException("Error removing realm roles from user: " + userId, e);
+        }
+    }
+
+    /**
+     * 将KeycloakRoleDTO转换为RoleRepresentation
+     */
+    private org.keycloak.representations.idm.RoleRepresentation convertRoleFromDTO(KeycloakRoleDTO dto) {
+        org.keycloak.representations.idm.RoleRepresentation role = new org.keycloak.representations.idm.RoleRepresentation();
+        role.setId(dto.getId());
+        role.setName(dto.getName());
+        role.setDescription(dto.getDescription());
+        role.setComposite(dto.isComposite());
+        role.setClientRole(dto.isClientRole());
+        role.setContainerId(dto.getContainerId());
+        return role;
     }
 
     /**
