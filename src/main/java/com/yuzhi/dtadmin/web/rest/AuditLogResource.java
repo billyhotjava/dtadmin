@@ -4,11 +4,13 @@ import com.yuzhi.dtadmin.repository.AuditLogRepository;
 import com.yuzhi.dtadmin.service.AuditLogService;
 import com.yuzhi.dtadmin.service.dto.AuditLogDTO;
 import com.yuzhi.dtadmin.web.rest.errors.BadRequestAlertException;
+import com.yuzhi.dtadmin.web.rest.util.ApiResponseUtil;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import org.slf4j.Logger;
@@ -55,7 +57,7 @@ public class AuditLogResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("")
-    public ResponseEntity<AuditLogDTO> createAuditLog(@Valid @RequestBody AuditLogDTO auditLogDTO) throws URISyntaxException {
+    public ResponseEntity<Map<String, Object>> createAuditLog(@Valid @RequestBody AuditLogDTO auditLogDTO) throws URISyntaxException {
         LOG.debug("REST request to save AuditLog : {}", auditLogDTO);
         if (auditLogDTO.getId() != null) {
             throw new BadRequestAlertException("A new auditLog cannot already have an ID", ENTITY_NAME, "idexists");
@@ -63,7 +65,7 @@ public class AuditLogResource {
         auditLogDTO = auditLogService.save(auditLogDTO);
         return ResponseEntity.created(new URI("/api/audit-logs/" + auditLogDTO.getId()))
             .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, auditLogDTO.getId().toString()))
-            .body(auditLogDTO);
+            .body(ApiResponseUtil.createSuccessResponse(auditLogDTO, "审计日志创建成功"));
     }
 
     /**
@@ -77,7 +79,7 @@ public class AuditLogResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PutMapping("/{id}")
-    public ResponseEntity<AuditLogDTO> updateAuditLog(
+    public ResponseEntity<Map<String, Object>> updateAuditLog(
         @PathVariable(value = "id", required = false) final Long id,
         @Valid @RequestBody AuditLogDTO auditLogDTO
     ) throws URISyntaxException {
@@ -96,7 +98,7 @@ public class AuditLogResource {
         auditLogDTO = auditLogService.update(auditLogDTO);
         return ResponseEntity.ok()
             .headers(HeaderUtil.createEntityUpdateAlert(applicationName, true, ENTITY_NAME, auditLogDTO.getId().toString()))
-            .body(auditLogDTO);
+            .body(ApiResponseUtil.createSuccessResponse(auditLogDTO, "审计日志更新成功"));
     }
 
     /**
@@ -111,7 +113,7 @@ public class AuditLogResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
-    public ResponseEntity<AuditLogDTO> partialUpdateAuditLog(
+    public ResponseEntity<Map<String, Object>> partialUpdateAuditLog(
         @PathVariable(value = "id", required = false) final Long id,
         @NotNull @RequestBody AuditLogDTO auditLogDTO
     ) throws URISyntaxException {
@@ -132,7 +134,7 @@ public class AuditLogResource {
         return ResponseUtil.wrapOrNotFound(
             result,
             HeaderUtil.createEntityUpdateAlert(applicationName, true, ENTITY_NAME, auditLogDTO.getId().toString())
-        );
+        ).map(dto -> ResponseEntity.ok().body(ApiResponseUtil.createSuccessResponse(dto, "审计日志部分更新成功")));
     }
 
     /**
@@ -142,11 +144,11 @@ public class AuditLogResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of auditLogs in body.
      */
     @GetMapping("")
-    public ResponseEntity<List<AuditLogDTO>> getAllAuditLogs(@org.springdoc.core.annotations.ParameterObject Pageable pageable) {
+    public ResponseEntity<Map<String, Object>> getAllAuditLogs(@org.springdoc.core.annotations.ParameterObject Pageable pageable) {
         LOG.debug("REST request to get a page of AuditLogs");
         Page<AuditLogDTO> page = auditLogService.findAll(pageable);
         HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
-        return ResponseEntity.ok().headers(headers).body(page.getContent());
+        return ResponseEntity.ok().headers(headers).body(ApiResponseUtil.createSuccessResponse(page.getContent(), "审计日志列表获取成功"));
     }
 
     /**
@@ -156,10 +158,12 @@ public class AuditLogResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the auditLogDTO, or with status {@code 404 (Not Found)}.
      */
     @GetMapping("/{id}")
-    public ResponseEntity<AuditLogDTO> getAuditLog(@PathVariable("id") Long id) {
+    public ResponseEntity<Map<String, Object>> getAuditLog(@PathVariable("id") Long id) {
         LOG.debug("REST request to get AuditLog : {}", id);
         Optional<AuditLogDTO> auditLogDTO = auditLogService.findOne(id);
-        return ResponseUtil.wrapOrNotFound(auditLogDTO);
+        return ResponseUtil.wrapOrNotFound(auditLogDTO)
+            .map(dto -> ResponseEntity.ok().body(ApiResponseUtil.createSuccessResponse(dto, "审计日志获取成功")))
+            .orElse(ResponseEntity.ok().body(ApiResponseUtil.createErrorResponse(404, "审计日志未找到")));
     }
 
     /**
@@ -169,11 +173,11 @@ public class AuditLogResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteAuditLog(@PathVariable("id") Long id) {
+    public ResponseEntity<Map<String, Object>> deleteAuditLog(@PathVariable("id") Long id) {
         LOG.debug("REST request to delete AuditLog : {}", id);
         auditLogService.delete(id);
         return ResponseEntity.noContent()
             .headers(HeaderUtil.createEntityDeletionAlert(applicationName, true, ENTITY_NAME, id.toString()))
-            .build();
+            .body(ApiResponseUtil.createSuccessResponse(null, "审计日志删除成功"));
     }
 }
