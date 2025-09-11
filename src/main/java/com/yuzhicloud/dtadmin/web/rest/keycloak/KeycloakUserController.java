@@ -3,6 +3,7 @@ package com.yuzhicloud.dtadmin.web.rest.keycloak;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yuzhicloud.dtadmin.dto.keycloak.KeycloakUserDTO;
 import com.yuzhicloud.dtadmin.dto.keycloak.KeycloakRoleDTO;
+import com.yuzhicloud.dtadmin.dto.keycloak.KeycloakRoleAssignmentDTO;
 import com.yuzhicloud.dtadmin.service.keycloak.KeycloakUserService;
 import com.yuzhicloud.dtadmin.service.keycloak.KeycloakRoleService;
 import com.yuzhi.dtadmin.domain.ApprovalRequest;
@@ -311,12 +312,16 @@ public class KeycloakUserController {
             
             // 创建审批项
             Set<ApprovalItem> items = new HashSet<>();
+            // 创建角色分配DTO并转换为JSON字符串
+            KeycloakRoleAssignmentDTO roleAssignment = new KeycloakRoleAssignmentDTO(roles);
+            String payload = convertRoleAssignmentToString(roleAssignment);
+            
             for (int i = 0; i < roles.size(); i++) {
                 ApprovalItem approvalItem = new ApprovalItem();
-                approvalItem.setTargetKind("ROLE");
-                approvalItem.setTargetId(roles.get(i).getName());
+                approvalItem.setTargetKind("USER");
+                approvalItem.setTargetId(userId); // 用户ID放在targetId字段中
                 approvalItem.setSeqNumber(i + 1);
-                approvalItem.setPayload(userId); // 用户ID作为payload
+                approvalItem.setPayload(payload); // 角色信息作为payload
                 approvalItem.setRequest(approvalRequest);
                 items.add(approvalItem);
             }
@@ -355,12 +360,16 @@ public class KeycloakUserController {
             
             // 创建审批项
             Set<ApprovalItem> items = new HashSet<>();
+            // 创建角色分配DTO并转换为JSON字符串
+            KeycloakRoleAssignmentDTO roleAssignment = new KeycloakRoleAssignmentDTO(roles);
+            String payload = convertRoleAssignmentToString(roleAssignment);
+            
             for (int i = 0; i < roles.size(); i++) {
                 ApprovalItem approvalItem = new ApprovalItem();
-                approvalItem.setTargetKind("ROLE");
-                approvalItem.setTargetId(roles.get(i).getName());
+                approvalItem.setTargetKind("USER");
+                approvalItem.setTargetId(userId); // 用户ID放在targetId字段中
                 approvalItem.setSeqNumber(i + 1);
-                approvalItem.setPayload(userId); // 用户ID作为payload
+                approvalItem.setPayload(payload); // 角色信息作为payload
                 approvalItem.setRequest(approvalRequest);
                 items.add(approvalItem);
             }
@@ -375,6 +384,18 @@ public class KeycloakUserController {
             logger.error("Error removing roles from user: {}", userId, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Failed to submit role removal request: " + e.getMessage()));
+        }
+    }
+    
+    /**
+     * 将角色分配对象转换为字符串
+     */
+    private String convertRoleAssignmentToString(KeycloakRoleAssignmentDTO roleAssignment) {
+        try {
+            return objectMapper.writeValueAsString(roleAssignment);
+        } catch (Exception e) {
+            logger.error("Error converting role assignment to string", e);
+            return "";
         }
     }
 }
