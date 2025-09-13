@@ -38,9 +38,9 @@ spring:
       fail-on-unknown-properties: false
   datasource:
     type: com.zaxxer.hikari.HikariDataSource
-    url: jdbc:mysql://db.weitaor.com:3306/dtadmin
-    username: dtadmin
-    password: DtOps@123
+    url: jdbc:${SPRING_DATASOURCE_PLATFORM:mysql}://${DB_SERVICE_HOST:localhost}:${DB_SERVICE_PORT}/${DB_SERVICE_DB_NAME:dtadmin}
+    username: ${DB_SERVICE_USER:dtadmin}
+    password: ${DB_SERVICE_PASSWORD:dtadmin}
     hikari:
       poolName: Hikari
       auto-commit: false
@@ -100,15 +100,15 @@ jhipster:
 # Keycloak 自定义配置 - 使用管理API
 app:
   keycloak:
-    server-url: https://sso.yuzhicloud.com
+    server-url: ${KEYCLOAK_URL:https://sso.yuzhicloud.com}
     # 管理API认证使用目标realm
-    auth-realm: s10
+    auth-realm: ${KEYCLOAK_REALM:s10}
     # 目标管理的realm
-    target-realm: s10
+    target-realm: ${KEYCLOAK_REALM:s10}
     # 管理客户端配置
     admin:
-      username: sysadmin
-      password: Devops123@
+      username: ${KEYCLOAK_ADMIN_USER:s10}
+      password: ${KEYCLOAK_ADMIN_PWD:s10}
       client-id: admin-cli
     # 普通客户端配置（用于用户登录）
     # 注意：web-app客户端需要在Keycloak中配置为支持Direct Access Grants
