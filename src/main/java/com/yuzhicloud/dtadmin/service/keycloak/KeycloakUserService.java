@@ -86,6 +86,8 @@ public class KeycloakUserService {
         user.setLastName(dto.getLastName());
         user.setEnabled(dto.isEnabled());
         user.setEmailVerified(dto.isEmailVerified());
+
+        user.setAttributes(dto.getAttributes());
         return user;
     }
 
