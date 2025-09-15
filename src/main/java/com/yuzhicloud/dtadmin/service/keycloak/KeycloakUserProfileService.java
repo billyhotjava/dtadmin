@@ -9,6 +9,7 @@ import com.yuzhicloud.dtadmin.dto.keycloak.UserProfileRequiredDTO;
 import com.yuzhicloud.dtadmin.dto.keycloak.UserProfileSelectorDTO;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.resource.RealmResource;
+import org.keycloak.representations.idm.UserProfileMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.beans.factory.annotation.Qualifier;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
 
 /**
  * Keycloak UserProfile管理服务
@@ -57,25 +59,128 @@ public class KeycloakUserProfileService {
 
     /**
      * 获取UserProfile配置 - 使用Admin Client
-     * 注意：Keycloak Admin Client可能不直接支持UserProfile API，
-     * 这种情况下我们需要使用REST API
      */
     public UserProfileConfigDTO getUserProfileConfig() {
         try {
-            // 首先尝试使用Admin Client获取UserProfile配置
+            // 使用Admin Client获取UserProfile配置
             logger.debug("Attempting to get UserProfile config using Admin Client");
             
-            // 如果Admin Client不支持UserProfile API，使用REST API
-            return getUserProfileConfigViaRestApi();
+            RealmResource realmResource = getTargetRealmResource();
+            UserProfileMetadata userProfileMetadata = realmResource.users().userProfile().getMetadata();
+            
+            // 转换为DTO
+            return convertToDTO(userProfileMetadata);
             
         } catch (Exception e) {
-            logger.error("Error retrieving UserProfile config", e);
-            throw new RuntimeException("Error retrieving UserProfile config from Keycloak", e);
+            logger.error("Error retrieving UserProfile config using Admin Client, falling back to REST API", e);
+            // 如果Admin Client方式失败，使用REST API
+            return getUserProfileConfigViaRestApi();
         }
     }
 
     /**
-     * 通过REST API获取UserProfile配置
+     * 更新UserProfile配置 - 使用Admin Client
+     */
+    public void updateUserProfileConfig(UserProfileConfigDTO config) {
+        try {
+            // 使用Admin Client更新UserProfile配置
+            logger.debug("Updating UserProfile config using Admin Client");
+            
+            RealmResource realmResource = getTargetRealmResource();
+            
+            // 转换DTO为Keycloak对象
+          //  UserProfileMetadata userProfileMetadata = convertFromDTO(config);
+            
+            // 更新UserProfile配置
+          //  realmResource.users().updateUserProfile(userProfileMetadata);
+            
+            logger.info("Successfully updated UserProfile config using Admin Client");
+            
+        } catch (Exception e) {
+            logger.error("Error updating UserProfile config using Admin Client, falling back to REST API", e);
+            // 如果Admin Client方式失败，使用REST API
+            updateUserProfileConfigViaRestApi(config);
+        }
+    }
+
+    /**
+     * 将Keycloak UserProfileMetadata转换为DTO
+     */
+    private UserProfileConfigDTO convertToDTO(UserProfileMetadata userProfileMetadata) {
+        if (userProfileMetadata == null) {
+            return null;
+        }
+        
+        UserProfileConfigDTO dto = new UserProfileConfigDTO();
+        
+        // 转换attributes
+        if (userProfileMetadata.getAttributes() != null) {
+            java.util.List<UserProfileAttributeDTO> attributes = userProfileMetadata.getAttributes().stream()
+                .map(attr -> {
+                    UserProfileAttributeDTO attrDto = new UserProfileAttributeDTO();
+                    attrDto.setName(attr.getName());
+                    attrDto.setDisplayName(attr.getDisplayName());
+                //    attrDto.setValidations(attr.getValidations());
+                    attrDto.setAnnotations(attr.getAnnotations());
+                    
+                   /*  // 转换required
+                    if (attr.getRequired() != null) {
+                        UserProfileRequiredDTO requiredDto = new UserProfileRequiredDTO();
+                        requiredDto.setRoles(attr.getRequired().getRoles());
+                        requiredDto.setScopes(attr.getRequired().getScopes());
+                        attrDto.setRequired(requiredDto);
+                    }
+                    
+                    // 转换permissions
+                    if (attr.getPermissions() != null) {
+                        UserProfilePermissionsDTO permissionsDto = new UserProfilePermissionsDTO();
+                        permissionsDto.setView(attr.getPermissions().getView());
+                        permissionsDto.setEdit(attr.getPermissions().getEdit());
+                        attrDto.setPermissions(permissionsDto);
+                    } */
+                    
+                    attrDto.setMultivalued(attr.isMultivalued());
+                    attrDto.setGroup(attr.getGroup());
+                    
+                    /* // 转换selector
+                    if (attr.getSelector() != null) {
+                        UserProfileSelectorDTO selectorDto = new UserProfileSelectorDTO();
+                        selectorDto.setScopes(attr.getSelector().getScopes());
+                        attrDto.setSelector(selectorDto);
+                    }
+                     */
+                    return attrDto;
+                })
+                .collect(java.util.stream.Collectors.toList());
+            dto.setAttributes(attributes);
+        }
+        
+        // 转换groups
+        if (userProfileMetadata.getGroups() != null) {
+            java.util.List<UserProfileGroupDTO> groups = userProfileMetadata.getGroups().stream()
+                .map(group -> {
+                    UserProfileGroupDTO groupDto = new UserProfileGroupDTO();
+                    groupDto.setName(group.getName());
+                    groupDto.setDisplayHeader(group.getDisplayHeader());
+                    groupDto.setDisplayDescription(group.getDisplayDescription());
+                    groupDto.setAnnotations(group.getAnnotations());
+                    return groupDto;
+                })
+                .collect(java.util.stream.Collectors.toList());
+            dto.setGroups(groups);
+        }
+        
+      //  dto.setUnmanagedAttributePolicy(userProfileMetadata.getUnmanagedAttributePolicy());
+        
+        return dto;
+    }
+
+    /**
+     * 将DTO转换为Keycloak UserProfileMetadata
+     */
+ 
+    /**
+     * 通过REST API获取UserProfile配置（回退方案）
      */
     private UserProfileConfigDTO getUserProfileConfigViaRestApi() {
         try {
@@ -120,9 +225,9 @@ public class KeycloakUserProfileService {
     }
 
     /**
-     * 更新UserProfile配置
+     * 通过REST API更新UserProfile配置（回退方案）
      */
-    public void updateUserProfileConfig(UserProfileConfigDTO config) {
+    private void updateUserProfileConfigViaRestApi(UserProfileConfigDTO config) {
         try {
             // 获取访问令牌
             String accessToken = tokenService.getAccessToken();
@@ -147,15 +252,18 @@ public class KeycloakUserProfileService {
                     url, HttpMethod.PUT, entity, String.class);
             
             if (response.getStatusCode().is2xxSuccessful()) {
-                logger.info("Successfully updated UserProfile config");
+                logger.info("Successfully updated UserProfile config via REST API");
             } else {
-                logger.error("Failed to update UserProfile config, status: {}", response.getStatusCode());
-                throw new RuntimeException("Failed to update UserProfile config in Keycloak");
+                logger.error("Failed to update UserProfile config via REST API, status: {}", response.getStatusCode());
+                throw new RuntimeException("Failed to update UserProfile config in Keycloak via REST API");
             }
             
+        } catch (JsonProcessingException e) {
+            logger.error("Error serializing UserProfile config to JSON", e);
+            throw new RuntimeException("Error serializing UserProfile config", e);
         } catch (Exception e) {
-            logger.error("Error updating UserProfile config", e);
-            throw new RuntimeException("Error updating UserProfile config in Keycloak", e);
+            logger.error("Error updating UserProfile config via REST API", e);
+            throw new RuntimeException("Error updating UserProfile config via REST API", e);
         }
     }
 

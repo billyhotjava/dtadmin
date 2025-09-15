@@ -192,8 +192,8 @@ public class KeycloakAuthController {
             logger.info("User login attempt using Admin Client SDK: {}", loginRequest.getUsername());
 
             // 使用官方SDK进行认证
-            KeycloakTokenDTO token = authService.login(loginRequest.getUsername(), loginRequest.getPassword());
-            
+            //KeycloakTokenDTO token = authService.login(loginRequest.getUsername(), loginRequest.getPassword());
+            KeycloakTokenDTO token =  tokenService.login(loginRequest.getUsername(), loginRequest.getPassword());
             // 获取用户信息
             UserRepresentation userRep = authService.getUserByUsername(loginRequest.getUsername());
             UserInfo userInfo;

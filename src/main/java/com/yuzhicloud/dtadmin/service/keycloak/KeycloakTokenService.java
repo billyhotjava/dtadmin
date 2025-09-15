@@ -68,6 +68,50 @@ public class KeycloakTokenService {
     }
 
     /**
+     * 用户登录 - 使用REST API实现
+     * 
+     * @param username 用户名
+     * @param password 密码
+     * @return 登录令牌信息
+     */
+    public KeycloakTokenDTO login(String username, String password) {
+        try {
+            String tokenUrl = String.format("%s/realms/%s/protocol/openid-connect/token",
+                    keycloakConfig.getKeycloakServerUrl(),
+                    keycloakConfig.getTargetRealm());
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+            MultiValueMap<String, String> map = new LinkedMultiValueMap<>();
+            map.add("grant_type", "password");
+            map.add("client_id", keycloakConfig.getClientId());
+            map.add("username", username);
+            map.add("password", password);
+
+            if (keycloakConfig.getClientSecret() != null && !keycloakConfig.getClientSecret().isEmpty()) {
+                map.add("client_secret", keycloakConfig.getClientSecret());
+            }
+
+            HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(map, headers);
+
+            ResponseEntity<KeycloakTokenDTO> response = restTemplate.postForEntity(
+                    tokenUrl, request, KeycloakTokenDTO.class);
+
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                logger.info("User login successful using REST API for user: {}", username);
+                return response.getBody();
+            } else {
+                logger.warn("User login failed for user: {}, status: {}", username, response.getStatusCode());
+                throw new RuntimeException("用户登录失败");
+            }
+        } catch (Exception e) {
+            logger.error("User login error using REST API for user: {}", username, e);
+            throw new RuntimeException("用户登录失败：" + e.getMessage(), e);
+        }
+    }
+
+    /**
      * 刷新令牌 - 使用REST API实现
      * 
      * @param refreshToken 刷新令牌

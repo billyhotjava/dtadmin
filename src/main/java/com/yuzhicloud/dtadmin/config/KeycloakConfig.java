@@ -2,6 +2,8 @@ package com.yuzhicloud.dtadmin.config;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import org.keycloak.OAuth2Constants;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.KeycloakBuilder;
 import org.springframework.beans.factory.annotation.Value;
@@ -48,6 +50,9 @@ public class KeycloakConfig {
     @Value("${app.keycloak.client-secret:}")
     private String clientSecret;
 
+    @Value("${app.keycloak.grantType:password}")
+    private String grantType;
+
     @Value("${app.keycloak.ssl.trust-all:true}")
     private boolean trustAllCertificates;
 
@@ -67,9 +72,11 @@ public class KeycloakConfig {
         return KeycloakBuilder.builder()
                 .serverUrl(keycloakServerUrl)
                 .realm(targetRealm)  // 使用目标realm进行管理认证
-                .clientId(adminClientId)
-                .username(adminUsername)
-                .password(adminPassword)
+                .clientId(clientId)
+                .clientSecret(clientSecret)
+             //   .username(adminUsername)
+             //   .password(adminPassword)
+                .grantType(OAuth2Constants.CLIENT_CREDENTIALS)
                 .build();
     }
 
@@ -157,6 +164,10 @@ public class KeycloakConfig {
 
     public String getClientSecret() {
         return clientSecret;
+    }
+
+    public String getGrantType() {
+        return grantType;
     }
 
     public boolean isTrustAllCertificates() {

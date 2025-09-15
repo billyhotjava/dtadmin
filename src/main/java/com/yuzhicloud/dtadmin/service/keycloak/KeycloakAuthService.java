@@ -14,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+
 import java.util.List;
 
 /**
@@ -26,9 +27,11 @@ public class KeycloakAuthService {
     private static final Logger logger = LoggerFactory.getLogger(KeycloakAuthService.class);
     
     private final KeycloakConfig keycloakConfig;
+    private final Keycloak keycloakAdminClient;
 
-    public KeycloakAuthService(KeycloakConfig keycloakConfig) {
+    public KeycloakAuthService(Keycloak keycloakAdminClient, KeycloakConfig keycloakConfig) {
         this.keycloakConfig = keycloakConfig;
+        this.keycloakAdminClient = keycloakAdminClient;
     }
 
     /**
@@ -168,15 +171,15 @@ public class KeycloakAuthService {
     public UserRepresentation getUserByUsername(String username) {
         try {
             // 使用管理员权限访问用户信息
-            Keycloak adminClient = KeycloakBuilder.builder()
+          /*   Keycloak adminClient = KeycloakBuilder.builder()
                     .serverUrl(keycloakConfig.getKeycloakServerUrl())
                     .realm(keycloakConfig.getTargetRealm())  // 使用认证realm
                     .clientId(keycloakConfig.getAdminClientId())
                     .username(keycloakConfig.getAdminUsername())
                     .password(keycloakConfig.getAdminPassword())
                     .build();
-
-            RealmResource targetRealm = adminClient.realm(keycloakConfig.getTargetRealm());
+ */
+            RealmResource targetRealm = keycloakAdminClient.realm(keycloakConfig.getTargetRealm());
             UsersResource usersResource = targetRealm.users();
             
             List<UserRepresentation> users = usersResource.search(username, true);
