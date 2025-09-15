@@ -150,7 +150,7 @@ spring:
       client:
         provider:
           oidc:
-            issuer-uri: https://sso.yuzhicloud.com/realms/s10
+            issuer-uri: ${KEYCLOAK_URL:https://sso.yuzhicloud.com}/realms/${KEYCLOAK_REALM:s10}
            # issuer-uri: http://localhost:9080/realms/jhipster
         registration:
           oidc:
