@@ -120,8 +120,9 @@ public class KeycloakUserProfileService {
                     UserProfileAttributeDTO attrDto = new UserProfileAttributeDTO();
                     attrDto.setName(attr.getName());
                     attrDto.setDisplayName(attr.getDisplayName());
-                //    attrDto.setValidations(attr.getValidations());
+                    attrDto.setValidations(attr.getValidators());
                     attrDto.setAnnotations(attr.getAnnotations());
+                    attrDto.setRequired(attr.isRequired());
                     
                    /*  // 转换required
                     if (attr.getRequired() != null) {

@@ -20,13 +20,13 @@ public class UserProfileAttributeDTO {
     private String displayName;
 
     @JsonProperty("validations")
-    private Map<String, Object> validations;
+    private Map<String, Map<String, Object>> validations;
 
     @JsonProperty("annotations")
     private Map<String, Object> annotations;
 
     @JsonProperty("required")
-    private UserProfileRequiredDTO required;
+    private boolean required;
 
     @JsonProperty("permissions")
     private UserProfilePermissionsDTO permissions;
@@ -60,11 +60,11 @@ public class UserProfileAttributeDTO {
         this.displayName = displayName;
     }
 
-    public Map<String, Object> getValidations() {
+    public Map<String, Map<String, Object>> getValidations() {
         return validations;
     }
 
-    public void setValidations(Map<String, Object> validations) {
+    public void setValidations(Map<String, Map<String, Object>> validations) {
         this.validations = validations;
     }
 
@@ -76,11 +76,11 @@ public class UserProfileAttributeDTO {
         this.annotations = annotations;
     }
 
-    public UserProfileRequiredDTO getRequired() {
+    public boolean getRequired() {
         return required;
     }
 
-    public void setRequired(UserProfileRequiredDTO required) {
+    public void setRequired(boolean required) {
         this.required = required;
     }
 
