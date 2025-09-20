@@ -1,0 +1,205 @@
+{
+  "realm": "yts",
+  "enabled": true,
+  "displayName": "YTS Platform Realm",
+  "loginTheme": "keycloak",
+  "registrationAllowed": false,
+  "rememberMe": true,
+  "resetPasswordAllowed": true,
+  "eventsEnabled": true,
+  "eventsListeners": [
+    "jboss-logging"
+  ],
+  "adminEventsEnabled": true,
+  "adminEventsDetailsEnabled": true,
+  "clients": [
+    {
+      "clientId": "yts-admin-ui",
+      "name": "YTS Admin UI",
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "rootUrl": "https://admin.example.com",
+      "baseUrl": "/",
+      "redirectUris": [
+        "https://admin.example.com/*",
+        "http://localhost:5173/*"
+      ],
+      "webOrigins": [
+        "https://admin.example.com",
+        "http://localhost:5173"
+      ],
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "defaultClientScopes": [
+        "web-origins",
+        "profile",
+        "email"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "phone"
+      ]
+    },
+    {
+      "clientId": "yts-admin-api",
+      "name": "YTS Admin API",
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "CHANGE_ME_ADMIN_API_SECRET",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "clientAuthenticatorType": "client-secret",
+      "redirectUris": [],
+      "webOrigins": [],
+      "attributes": {
+        "access.token.lifespan": "300",
+        "token.endpoint.auth.signing.alg": "HS256"
+      }
+    },
+    {
+      "clientId": "yts-portal-ui",
+      "name": "YTS Portal UI",
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "rootUrl": "https://portal.example.com",
+      "baseUrl": "/",
+      "redirectUris": [
+        "https://portal.example.com/*",
+        "http://localhost:4173/*"
+      ],
+      "webOrigins": [
+        "https://portal.example.com",
+        "http://localhost:4173"
+      ],
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "defaultClientScopes": [
+        "web-origins",
+        "profile",
+        "email"
+      ]
+    },
+    {
+      "clientId": "yts-portal-api",
+      "name": "YTS Portal API",
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "CHANGE_ME_PORTAL_API_SECRET",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "clientAuthenticatorType": "client-secret",
+      "redirectUris": [],
+      "webOrigins": []
+    }
+  ],
+  "roles": {
+    "realm": [
+      {
+        "name": "sysadmin",
+        "description": "System administrator for management console"
+      },
+      {
+        "name": "authadmin",
+        "description": "Authorization administrator for change approvals"
+      },
+      {
+        "name": "auditadmin",
+        "description": "Security auditor with read-only access"
+      },
+      {
+        "name": "role_open",
+        "description": "Portal role: Open"
+      },
+      {
+        "name": "role_normal",
+        "description": "Portal role: Normal"
+      },
+      {
+        "name": "role_secret",
+        "description": "Portal role: Secret"
+      },
+      {
+        "name": "role_topsecret",
+        "description": "Portal role: Top Secret"
+      }
+    ]
+  },
+  "users": [
+    {
+      "username": "sysadmin",
+      "email": "sysadmin@example.com",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "System",
+      "lastName": "Admin",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "CHANGE_ME_SYSADMIN",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "sysadmin"
+      ],
+      "requiredActions": []
+    },
+    {
+      "username": "authadmin",
+      "email": "authadmin@example.com",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Authorization",
+      "lastName": "Admin",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "CHANGE_ME_AUTHADMIN",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "authadmin"
+      ],
+      "requiredActions": []
+    },
+    {
+      "username": "auditadmin",
+      "email": "auditadmin@example.com",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Audit",
+      "lastName": "Admin",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "CHANGE_ME_AUDITADMIN",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "auditadmin"
+      ],
+      "requiredActions": []
+    }
+  ],
+  "groups": [],
+  "clientScopes": [],
+  "scopeMappings": [],
+  "clientScopeMappings": {},
+  "defaultDefaultClientScopes": [
+    "web-origins",
+    "role_list",
+    "profile",
+    "email"
+  ],
+  "defaultOptionalClientScopes": [
+    "address",
+    "phone"
+  ]
+}

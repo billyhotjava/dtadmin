@@ -7,6 +7,7 @@ import com.yuzhi.dtadmin.security.*;
 import com.yuzhi.dtadmin.security.SecurityUtils;
 import com.yuzhi.dtadmin.security.oauth2.AudienceValidator;
 import com.yuzhi.dtadmin.security.oauth2.CustomClaimConverter;
+import com.yuzhi.dtadmin.service.admin.WhitelistService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.*;
@@ -32,6 +33,7 @@ import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.oauth2.core.oidc.user.OidcUserAuthority;
 import org.springframework.security.oauth2.jwt.*;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.csrf.*;
 import org.springframework.security.web.servlet.util.matcher.MvcRequestMatcher;
@@ -53,7 +55,8 @@ public class SecurityConfiguration {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, MvcRequestMatcher.Builder mvc) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, MvcRequestMatcher.Builder mvc, WhitelistService whitelistService)
+        throws Exception {
         http
             .cors(withDefaults())
             .csrf(csrf ->
@@ -64,33 +67,28 @@ public class SecurityConfiguration {
                     .ignoringRequestMatchers(mvc.pattern("/api/keycloak/**")) // 禁用所有Keycloak API的CSRF保护
             )
             .authorizeHttpRequests(authz ->
-                // prettier-ignore
                 authz
-                    .requestMatchers(mvc.pattern("/api/**")).permitAll() // 允许所有API接口访问，由Keycloak进行权限控制
-                    .requestMatchers(mvc.pattern("/v3/api-docs/**")).permitAll() // 允许API文档访问
-                    .requestMatchers(mvc.pattern("/management/**")).permitAll() // 允许所有管理端点访问
-                    .anyRequest().permitAll() // 允许所有其他请求访问
+                    .requestMatchers(mvc.pattern("/admin/**")).authenticated()
+                    .requestMatchers(mvc.pattern("/v3/api-docs/**")).permitAll()
+                    .requestMatchers(mvc.pattern("/management/**")).permitAll()
+                    .anyRequest().permitAll()
             )
-            // 注释掉OAuth2资源服务器配置，以避免JWT验证
-            // .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(authenticationConverter())))
+            .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(authenticationConverter())))
             .oauth2Login(oauth2 -> oauth2.loginPage("/").userInfoEndpoint(userInfo -> userInfo.oidcUserService(this.oidcUserService())))
             .oauth2Client(withDefaults())
             .exceptionHandling(exceptions -> exceptions
                 .authenticationEntryPoint((request, response, authException) -> {
-                    // 对于API请求，返回JSON格式的401错误，而不是重定向
                     String requestURI = request.getRequestURI();
-                    if (requestURI.startsWith("/api/")) {
+                    if (requestURI.startsWith("/admin/")) {
                         response.setContentType("application/json;charset=UTF-8");
                         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                        response.getWriter().write(
-                            "{\"status\":401,\"message\":\"Unauthorized\",\"data\":null}"
-                        );
+                        response.getWriter().write("{\"status\":401,\"message\":\"Unauthorized\",\"data\":null}");
                     } else {
-                        // 对于非API请求，使用默认行为（重定向到登录页）
                         response.sendRedirect("/");
                     }
                 })
             );
+        http.addFilterAfter(new AdminAccessFilter(whitelistService), BearerTokenAuthenticationFilter.class);
         return http.build();
     }
 
@@ -99,8 +97,6 @@ public class SecurityConfiguration {
         return new MvcRequestMatcher.Builder(introspector);
     }
 
-    // 注释掉JWT认证转换器，因为不再需要Spring Security验证JWT
-    /*
     Converter<Jwt, AbstractAuthenticationToken> authenticationConverter() {
         JwtAuthenticationConverter jwtAuthenticationConverter = new JwtAuthenticationConverter();
         jwtAuthenticationConverter.setJwtGrantedAuthoritiesConverter(
@@ -114,7 +110,6 @@ public class SecurityConfiguration {
         jwtAuthenticationConverter.setPrincipalClaimName(PREFERRED_USERNAME);
         return jwtAuthenticationConverter;
     }
-    */
 
     OAuth2UserService<OidcUserRequest, OidcUser> oidcUserService() {
         final OidcUserService delegate = new OidcUserService();
@@ -148,8 +143,6 @@ public class SecurityConfiguration {
         };
     }
 
-    // 注释掉JWT解码器，因为不再需要Spring Security验证JWT
-    /*
     @Bean
     JwtDecoder jwtDecoder(ClientRegistrationRepository clientRegistrationRepository, RestTemplateBuilder restTemplateBuilder) {
         NimbusJwtDecoder jwtDecoder = JwtDecoders.fromOidcIssuerLocation(issuerUri);
@@ -165,7 +158,6 @@ public class SecurityConfiguration {
 
         return jwtDecoder;
     }
-    */
 
     /**
      * Custom CSRF handler to provide BREACH protection for Single-Page Applications (SPA).
