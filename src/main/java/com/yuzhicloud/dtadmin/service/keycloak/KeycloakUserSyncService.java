@@ -3,6 +3,7 @@ package com.yuzhicloud.dtadmin.service.keycloak;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yuzhicloud.dtadmin.dto.keycloak.KeycloakRoleAssignmentDTO;
 import com.yuzhicloud.dtadmin.dto.keycloak.KeycloakUserDTO;
+import com.yuzhicloud.dtadmin.service.keycloak.policy.KeycloakGovernancePolicyService;
 import com.yuzhi.dtadmin.domain.ApprovalRequest;
 import com.yuzhi.dtadmin.domain.ApprovalItem;
 import com.yuzhi.dtadmin.domain.enumeration.ApprovalStatus;
@@ -27,12 +28,15 @@ public class KeycloakUserSyncService {
     private final KeycloakUserService keycloakUserService;
     private final ApprovalRequestRepository approvalRequestRepository;
     private final ObjectMapper objectMapper;
+    private final KeycloakGovernancePolicyService governancePolicyService;
 
     public KeycloakUserSyncService(KeycloakUserService keycloakUserService, 
-                                  ApprovalRequestRepository approvalRequestRepository) {
+                                  ApprovalRequestRepository approvalRequestRepository,
+                                  KeycloakGovernancePolicyService governancePolicyService) {
         this.keycloakUserService = keycloakUserService;
         this.approvalRequestRepository = approvalRequestRepository;
         this.objectMapper = new ObjectMapper();
+        this.governancePolicyService = governancePolicyService;
     }
 
     /**
@@ -107,7 +111,9 @@ public class KeycloakUserSyncService {
         ApprovalItem item = items.iterator().next();
         try {
             KeycloakUserDTO user = objectMapper.readValue(item.getPayload(), KeycloakUserDTO.class);
+            user.setAttributes(governancePolicyService.normalizeAttributes(user.getAttributes()));
             String userId = keycloakUserService.createUser(user);
+            governancePolicyService.syncDataRolesForUser(userId, user.getAttributes());
             logger.info("Created user {} with Keycloak ID: {}", user.getUsername(), userId);
         } catch (Exception e) {
             throw new RuntimeException("Failed to create user in Keycloak", e);
@@ -127,7 +133,9 @@ public class KeycloakUserSyncService {
         ApprovalItem item = items.iterator().next();
         try {
             KeycloakUserDTO user = objectMapper.readValue(item.getPayload(), KeycloakUserDTO.class);
+            user.setAttributes(governancePolicyService.normalizeAttributes(user.getAttributes()));
             keycloakUserService.updateUser(item.getTargetId(), user);
+            governancePolicyService.syncDataRolesForUser(item.getTargetId(), user.getAttributes());
             logger.info("Updated user with Keycloak ID: {}", item.getTargetId());
         } catch (Exception e) {
             throw new RuntimeException("Failed to update user in Keycloak", e);
@@ -169,8 +177,10 @@ public class KeycloakUserSyncService {
                 // 这里假设payload包含角色信息，targetId是用户ID
                 KeycloakRoleAssignmentDTO roleAssignment = objectMapper.readValue(item.getPayload(), KeycloakRoleAssignmentDTO.class);
                 
+                governancePolicyService.validateRoleAssignments(item.getTargetId(), roleAssignment.getRoles());
                 // 为用户分配角色
                 keycloakUserService.assignRealmRolesToUser(item.getTargetId(), roleAssignment.getRoles());
+                governancePolicyService.resyncDataRolesFromSource(item.getTargetId());
                 
                 logger.info("Granted roles to user: {}", item.getTargetId());
             } catch (Exception e) {
@@ -195,8 +205,10 @@ public class KeycloakUserSyncService {
                 // 这里假设payload包含角色信息，targetId是用户ID
                 KeycloakRoleAssignmentDTO roleAssignment = objectMapper.readValue(item.getPayload(), KeycloakRoleAssignmentDTO.class);
                 
+                governancePolicyService.validateRoleRemoval(item.getTargetId(), roleAssignment.getRoles());
                 // 从用户移除角色
                 keycloakUserService.removeRealmRolesFromUser(item.getTargetId(), roleAssignment.getRoles());
+                governancePolicyService.resyncDataRolesFromSource(item.getTargetId());
                 
                 logger.info("Revoked roles from user: {}", item.getTargetId());
             } catch (Exception e) {

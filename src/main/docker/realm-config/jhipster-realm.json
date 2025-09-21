@@ -309,7 +309,7 @@
       ],
       "jhipster-control-center": [],
       "security-admin-console": [],
-      "web_app": [],
+      "dtadmin": [],
       "admin-cli": [],
       "account-console": [],
       "broker": [
@@ -762,14 +762,14 @@
     },
     {
       "id": "6e8deddb-b4d6-4e2e-b389-b397d3f74fcd",
-      "clientId": "web_app",
+      "clientId": "dtadmin",
       "rootUrl": "http://localhost:8080",
       "adminUrl": "http://localhost:8080",
       "surrogateAuthRequired": false,
       "enabled": true,
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
-      "secret": "web_app",
+      "secret": "",
       "redirectUris": [
         "dev.localhost.ionic:*",
         "http://127.0.0.1:*",

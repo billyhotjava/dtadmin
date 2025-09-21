@@ -107,9 +107,9 @@ app:
     # 目标管理的realm
     target-realm: ${KEYCLOAK_REALM:s10}
     # 普通客户端配置（用于用户登录）
-    # 注意：web-app客户端需要在Keycloak中配置为支持Direct Access Grants
-    client-id: ${KEYCLOAK_CLIENT_ID:s10}  # 使用web-app客户端进行用户登录
-    client-secret: ${KEYCLOAK_CLIENT_SECRET:s10}
+    # 注意：dtadmin 客户端需要在 Keycloak 中配置为支持 Direct Access Grants
+    client-id: ${KEYCLOAK_CLIENT_ID:dtadmin}  # 使用管理端客户端进行用户登录
+    client-secret: ${KEYCLOAK_CLIENT_SECRET:}
     grantType: ${KEYCLOAK_GRANDTYPE:password}
     ssl:
       trust-all: true

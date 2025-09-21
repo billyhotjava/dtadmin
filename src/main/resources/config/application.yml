@@ -150,13 +150,16 @@ spring:
       client:
         provider:
           oidc:
-            issuer-uri: ${KEYCLOAK_URL:https://sso.yuzhicloud.com}/realms/${KEYCLOAK_REALM:s10}
+            issuer-uri: ${OAUTH2_ISSUER_URI:${KEYCLOAK_URL:https://sso.yuzhicloud.com}/realms/${KEYCLOAK_REALM:s10}}
            # issuer-uri: http://localhost:9080/realms/jhipster
         registration:
           oidc:
-            client-id: web_app
-            client-secret: web_app
+            client-id: ${OAUTH2_ADMIN_CLIENT_ID:${KEYCLOAK_CLIENT_ID:dtadmin}}
+            client-secret: ${OAUTH2_ADMIN_CLIENT_SECRET:${KEYCLOAK_CLIENT_SECRET:}}
             scope: openid, profile, email, offline_access # last one for refresh tokens
+      resourceserver:
+        jwt:
+          issuer-uri: ${OAUTH2_ISSUER_URI:${KEYCLOAK_URL:https://sso.yuzhicloud.com}/realms/${KEYCLOAK_REALM:s10}}
   task:
     execution:
       thread-name-prefix: dtadmin-task-

@@ -2,6 +2,8 @@
 
 This application was generated using JHipster 8.11.0, you can find documentation and help at [https://www.jhipster.tech/documentation-archive/v8.11.0](https://www.jhipster.tech/documentation-archive/v8.11.0).
 
+> Keycloak integration: the管理端统一使用 Keycloak 客户端 `dtadmin`（与业务端的 `yts-platform` 区分），请确保在运行环境中只创建这两个业务客户端。
+
 ## Project Structure
 
 Node is required for generation and recommended for development. `package.json` is always generated for a better development experience with prettier, commit hooks, scripts and so on.
@@ -50,8 +52,8 @@ spring:
             issuer-uri: http://localhost:9080/realms/jhipster
         registration:
           oidc:
-            client-id: web_app
-            client-secret: web_app
+            client-id: dtadmin
+            client-secret: ''
             scope: openid,profile,email
 ```
 
